@@ -20,6 +20,7 @@ const aiStore = useAiStore()
 const alertTarget = ref('')
 const alertDirection = ref<'above' | 'below'>('above')
 let historyRefreshTimer: number | null = null
+let matrixRefreshTimer: number | null = null
 
 const currentAnalysis = computed(() => indicatorStore.analysisFor(marketStore.currentSymbolId, marketStore.selectedTimeframe) as any)
 const currentInsight = computed(() => aiStore.insights[`${marketStore.currentSymbolId}:${marketStore.selectedTimeframe}`])
@@ -73,6 +74,11 @@ const finnhubSocket = useWebSocket({
   },
   onMessage: (event) => {
     const payload = JSON.parse(event.data) as Record<string, unknown>
+    if (payload.type === 'ping') {
+      finnhubSocket.send(JSON.stringify({ type: 'pong' }))
+      return
+    }
+
     parseFinnhubQuote(payload).forEach((quote) => marketStore.upsertQuote(quote))
   },
 })
@@ -97,25 +103,29 @@ function addAlertFromForm() {
   alertTarget.value = ''
 }
 
-function refreshMatrix() {
-  void indicatorStore.refreshMatrix(marketStore.watchlistIds.slice(0, 6))
+function refreshMatrix(forceHistory = false) {
+  void indicatorStore.refreshMatrix(marketStore.watchlistIds.slice(0, 6), SIGNAL_MATRIX_TIMEFRAMES, forceHistory)
 }
 
 onMounted(async () => {
   marketStore.init()
-  await syncActiveView(true)
+  await syncActiveView(false)
   marketStore.startPolling()
-  refreshMatrix()
+  refreshMatrix(false)
 
   historyRefreshTimer = window.setInterval(() => {
-    void syncActiveView(true)
-  }, 30000)
+    void syncActiveView(false)
+  }, 120000)
+
+  matrixRefreshTimer = window.setInterval(() => {
+    refreshMatrix(false)
+  }, 60000)
 })
 
 watch(
   () => [marketStore.currentSymbolId, marketStore.selectedTimeframe] as const,
   () => {
-    void syncActiveView(true)
+    void syncActiveView(false)
     if (marketStore.currentSymbol.category === 'crypto') {
       binanceSocket.reconnect()
     } else {
@@ -140,8 +150,8 @@ watch(
 watch(
   () => indicatorStore.activeIndicators.map((item) => item.key).join(','),
   () => {
-    void indicatorStore.compute(marketStore.currentSymbolId, marketStore.selectedTimeframe, true)
-    refreshMatrix()
+    void indicatorStore.compute(marketStore.currentSymbolId, marketStore.selectedTimeframe, false)
+    refreshMatrix(false)
   },
 )
 
@@ -149,7 +159,7 @@ watch(
   () => marketStore.watchlistIds.join(','),
   () => {
     void marketStore.refreshQuotes()
-    refreshMatrix()
+    refreshMatrix(false)
   },
 )
 
@@ -159,6 +169,9 @@ onBeforeUnmount(() => {
   finnhubSocket.disconnect()
   if (historyRefreshTimer != null) {
     window.clearInterval(historyRefreshTimer)
+  }
+  if (matrixRefreshTimer != null) {
+    window.clearInterval(matrixRefreshTimer)
   }
 })
 </script>
@@ -346,6 +359,7 @@ onBeforeUnmount(() => {
             :enabled-groups="indicatorStore.enabledGroups"
             @toggle-indicator="indicatorStore.toggleIndicator"
             @toggle-group="indicatorStore.toggleGroup"
+            @toggle-all="indicatorStore.setAllIndicators"
             @preset="indicatorStore.applyPreset"
           />
 

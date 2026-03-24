@@ -1,4 +1,5 @@
 import type { AppSettings, IndicatorDescriptor, MarketSymbol, SupportedTimeframe } from '../types/market'
+import { APP_ENV } from '../utils/env'
 
 export const STORAGE_KEYS = {
   watchlist: 'fa.watchlist',
@@ -6,15 +7,16 @@ export const STORAGE_KEYS = {
   alerts: 'fa.alerts',
   enabledIndicators: 'fa.enabledIndicators',
   enabledGroups: 'fa.enabledGroups',
+  indicatorDefaultsMigrated: 'fa.indicatorDefaultsMigrated',
 } as const
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  finnhubKey: '',
-  alphaVantageKey: '',
-  openAiKey: '',
-  openAiModel: 'gpt-4o',
-  theme: 'dark',
-  multiChartCount: 2,
+  finnhubKey: APP_ENV.finnhubKey,
+  alphaVantageKey: APP_ENV.alphaVantageKey,
+  openAiKey: APP_ENV.openAiKey,
+  openAiModel: APP_ENV.openAiModel,
+  theme: APP_ENV.theme,
+  multiChartCount: APP_ENV.multiChartCount,
 }
 
 export const TIMEFRAMES: SupportedTimeframe[] = [

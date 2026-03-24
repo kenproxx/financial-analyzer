@@ -396,8 +396,8 @@ export function calculateGuppy(values: number[]) {
 }
 
 export function detectPatterns(candles: OHLCV[]) {
-  const recent = candles.slice(-3)
-  if (recent.length < 2) {
+  const latestCandle = candles.at(-1)
+  if (!latestCandle) {
     return {
       doji: false,
       engulfing: 'none',
@@ -405,23 +405,79 @@ export function detectPatterns(candles: OHLCV[]) {
     }
   }
 
-  const open = openSeries(recent)
-  const high = highSeries(recent)
-  const low = lowSeries(recent)
-  const close = closeSeries(recent)
+  const dojiWindow = candles.slice(-1)
+  const engulfingWindow = candles.slice(-2)
+  const reversalWindow = candles.slice(-5)
+
+  const dojiPattern =
+    dojiWindow.length >= 1
+      ? doji({
+          open: openSeries(dojiWindow),
+          high: highSeries(dojiWindow),
+          low: lowSeries(dojiWindow),
+          close: closeSeries(dojiWindow),
+        })
+      : false
+
+  const engulfingPattern =
+    engulfingWindow.length >= 2
+      ? bullishengulfingpattern({
+          open: openSeries(engulfingWindow),
+          high: highSeries(engulfingWindow),
+          low: lowSeries(engulfingWindow),
+          close: closeSeries(engulfingWindow),
+        })
+        ? 'bullish'
+        : bearishengulfingpattern({
+            open: openSeries(engulfingWindow),
+            high: highSeries(engulfingWindow),
+            low: lowSeries(engulfingWindow),
+            close: closeSeries(engulfingWindow),
+          })
+          ? 'bearish'
+          : 'none'
+      : 'none'
+
+  const body = Math.abs(latestCandle.close - latestCandle.open)
+  const range = Math.max(latestCandle.high - latestCandle.low, Number.EPSILON)
+  const upperShadow = latestCandle.high - Math.max(latestCandle.open, latestCandle.close)
+  const lowerShadow = Math.min(latestCandle.open, latestCandle.close) - latestCandle.low
+  const manualHammer =
+    lowerShadow >= body * 2 && upperShadow <= body * 0.5 && (body / range < 0.4 || lowerShadow / range > 0.5)
+  const manualShootingStar =
+    upperShadow >= body * 2 && lowerShadow <= body * 0.5 && (body / range < 0.4 || upperShadow / range > 0.5)
+
+  const hammerPattern =
+    reversalWindow.length >= 5
+      ? hammerpattern({
+          open: openSeries(reversalWindow),
+          high: highSeries(reversalWindow),
+          low: lowSeries(reversalWindow),
+          close: closeSeries(reversalWindow),
+        })
+        ? 'hammer'
+        : shootingstar({
+            open: openSeries(reversalWindow),
+            high: highSeries(reversalWindow),
+            low: lowSeries(reversalWindow),
+            close: closeSeries(reversalWindow),
+          })
+          ? 'shootingStar'
+          : manualHammer
+            ? 'hammer'
+            : manualShootingStar
+              ? 'shootingStar'
+              : 'none'
+      : manualHammer
+        ? 'hammer'
+        : manualShootingStar
+          ? 'shootingStar'
+          : 'none'
 
   return {
-    doji: doji({ open, high, low, close }),
-    engulfing: bullishengulfingpattern({ open, high, low, close })
-      ? 'bullish'
-      : bearishengulfingpattern({ open, high, low, close })
-        ? 'bearish'
-        : 'none',
-    hammer: hammerpattern({ open, high, low, close })
-      ? 'hammer'
-      : shootingstar({ open, high, low, close })
-        ? 'shootingStar'
-        : 'none',
+    doji: dojiPattern,
+    engulfing: engulfingPattern,
+    hammer: hammerPattern,
   } as const
 }
 

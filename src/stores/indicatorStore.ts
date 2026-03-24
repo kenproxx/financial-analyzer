@@ -4,11 +4,11 @@ import { INDICATORS, PRESETS, SIGNAL_MATRIX_TIMEFRAMES, STORAGE_KEYS } from '../
 import type { IndicatorGroup, SupportedTimeframe, TimeframeSignalCell } from '../types/market'
 import { useTechnicalAnalysis } from '../composables/useTechnicalAnalysis'
 import { buildSignals } from '../composables/useSignalEngine'
-import { buildCacheKey, fetchHistoricalCandles, marketById } from '../utils/marketData'
+import { buildCacheKey, marketById } from '../utils/marketData'
 import { readLocalStorage, writeLocalStorage } from '../utils/storage'
 import { useMarketStore } from './marketStore'
 
-const DEFAULT_ENABLED = ['ema9', 'ema21', 'sma50', 'bollinger', 'vwap', 'rsi', 'macd', 'adx', 'stoch', 'mfi', 'supertrend']
+const DEFAULT_ENABLED = INDICATORS.map((item) => item.key)
 
 type GroupState = Record<IndicatorGroup, boolean>
 
@@ -22,14 +22,40 @@ const DEFAULT_GROUPS: GroupState = {
   advanced: true,
 }
 
+function createGroupState(enabled: boolean): GroupState {
+  return {
+    trend: enabled,
+    momentum: enabled,
+    volatility: enabled,
+    volume: enabled,
+    pattern: enabled,
+    support: enabled,
+    advanced: enabled,
+  }
+}
+
 export const useIndicatorStore = defineStore('indicator', () => {
   const { calculate } = useTechnicalAnalysis()
+  const hasMigratedDefaults = readLocalStorage(STORAGE_KEYS.indicatorDefaultsMigrated, false)
   const enabledIndicators = ref<string[]>(readLocalStorage(STORAGE_KEYS.enabledIndicators, DEFAULT_ENABLED))
   const enabledGroups = ref<GroupState>(readLocalStorage(STORAGE_KEYS.enabledGroups, DEFAULT_GROUPS))
   const analysisByKey = ref<Record<string, ReturnType<typeof buildSignals> & Record<string, unknown>>>({})
   const loadingByKey = ref<Record<string, boolean>>({})
   const errorByKey = ref<Record<string, string>>({})
   const timeframeMatrix = ref<Record<string, TimeframeSignalCell>>({})
+  const matrixRefreshing = ref(false)
+
+  if (!hasMigratedDefaults) {
+    enabledIndicators.value = [...DEFAULT_ENABLED]
+    enabledGroups.value = createGroupState(true)
+    writeLocalStorage(STORAGE_KEYS.enabledIndicators, enabledIndicators.value)
+    writeLocalStorage(STORAGE_KEYS.enabledGroups, enabledGroups.value)
+    writeLocalStorage(STORAGE_KEYS.indicatorDefaultsMigrated, true)
+  }
+
+  function delay(ms: number) {
+    return new Promise((resolve) => window.setTimeout(resolve, ms))
+  }
 
   const activeIndicators = computed(() =>
     INDICATORS.filter((item) => enabledGroups.value[item.group] && enabledIndicators.value.includes(item.key)),
@@ -100,51 +126,62 @@ export const useIndicatorStore = defineStore('indicator', () => {
     enabledIndicators.value = [...PRESETS[preset]]
   }
 
-  async function refreshMatrix(symbolIds: string[], timeframes = SIGNAL_MATRIX_TIMEFRAMES) {
+  function setAllIndicators(enabled: boolean) {
+    enabledIndicators.value = enabled ? INDICATORS.map((item) => item.key) : []
+    enabledGroups.value = createGroupState(enabled)
+  }
+
+  async function refreshMatrix(symbolIds: string[], timeframes = SIGNAL_MATRIX_TIMEFRAMES, forceHistory = false) {
     const marketStore = useMarketStore()
+    if (matrixRefreshing.value) {
+      return
+    }
 
-    for (const symbolId of symbolIds) {
-      const symbol = marketById(symbolId)
-      if (!symbol) {
-        continue
-      }
+    matrixRefreshing.value = true
 
-      for (const timeframe of timeframes) {
-        const key = `${symbolId}:${timeframe}`
-        timeframeMatrix.value[key] = {
-          symbol: symbolId,
-          timeframe,
-          loading: true,
-          strength: timeframeMatrix.value[key]?.strength ?? 'neutral',
-          updatedAt: timeframeMatrix.value[key]?.updatedAt,
+    try {
+      for (const symbolId of symbolIds) {
+        const symbol = marketById(symbolId)
+        if (!symbol) {
+          continue
         }
 
-        try {
-          const candles = await fetchHistoricalCandles({
-            symbol,
-            timeframe,
-            settings: marketStore.settings,
-            limit: 250,
-          })
-          const workerResult = await calculate(symbolId, timeframe, candles, candles.at(-1)?.time)
-          const { aggregate } = buildSignals(workerResult as never, activeIndicators.value.map((item) => item.key))
+        for (const timeframe of timeframes) {
+          const key = `${symbolId}:${timeframe}`
           timeframeMatrix.value[key] = {
             symbol: symbolId,
             timeframe,
-            loading: false,
-            strength: aggregate.conclusion,
-            updatedAt: Date.now(),
+            loading: true,
+            strength: timeframeMatrix.value[key]?.strength ?? 'neutral',
+            updatedAt: timeframeMatrix.value[key]?.updatedAt,
           }
-        } catch {
-          timeframeMatrix.value[key] = {
-            symbol: symbolId,
-            timeframe,
-            loading: false,
-            strength: 'neutral',
-            updatedAt: Date.now(),
+
+          try {
+            const candles = await marketStore.loadHistory(symbolId, timeframe, forceHistory)
+            const workerResult = await calculate(symbolId, timeframe, candles, candles.at(-1)?.time)
+            const { aggregate } = buildSignals(workerResult as never, activeIndicators.value.map((item) => item.key))
+            timeframeMatrix.value[key] = {
+              symbol: symbolId,
+              timeframe,
+              loading: false,
+              strength: aggregate.conclusion,
+              updatedAt: Date.now(),
+            }
+          } catch {
+            timeframeMatrix.value[key] = {
+              symbol: symbolId,
+              timeframe,
+              loading: false,
+              strength: 'neutral',
+              updatedAt: Date.now(),
+            }
           }
+
+          await delay(250)
         }
       }
+    } finally {
+      matrixRefreshing.value = false
     }
   }
 
@@ -159,12 +196,14 @@ export const useIndicatorStore = defineStore('indicator', () => {
     loadingByKey,
     errorByKey,
     timeframeMatrix,
+    matrixRefreshing,
     compute,
     ensure,
     analysisFor,
     toggleIndicator,
     toggleGroup,
     applyPreset,
+    setAllIndicators,
     refreshMatrix,
   }
 })

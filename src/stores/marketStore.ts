@@ -3,16 +3,18 @@ import { defineStore } from 'pinia'
 import { DEFAULT_SETTINGS, DEFAULT_WATCHLIST, MARKETS, STORAGE_KEYS } from '../constants/markets'
 import type { OHLCV, PriceAlert, PriceSnapshot, SupportedTimeframe } from '../types/market'
 import { fetchHistoricalCandles, fetchLatestQuote, buildCacheKey, marketById } from '../utils/marketData'
+import { readSheetHistory, writeSheetHistory } from '../utils/googleSheetsCache'
 import { readLocalStorage, uid, writeLocalStorage } from '../utils/storage'
 
 export const useMarketStore = defineStore('market', () => {
-  const settings = ref(readLocalStorage(STORAGE_KEYS.settings, DEFAULT_SETTINGS))
+  const settings = ref({ ...DEFAULT_SETTINGS, ...readLocalStorage(STORAGE_KEYS.settings, {}) })
   const watchlistIds = ref<string[]>(readLocalStorage(STORAGE_KEYS.watchlist, DEFAULT_WATCHLIST))
   const alerts = ref<PriceAlert[]>(readLocalStorage(STORAGE_KEYS.alerts, []))
   const currentSymbolId = ref(watchlistIds.value[0] ?? MARKETS[0].id)
   const selectedTimeframe = ref<SupportedTimeframe>('1h')
   const quotes = ref<Record<string, PriceSnapshot>>({})
   const candlesByKey = ref<Record<string, OHLCV[]>>({})
+  const historyFetchedAt = ref<Record<string, number>>({})
   const loadingHistory = ref<Record<string, boolean>>({})
   const historyErrors = ref<Record<string, string>>({})
   const quotesLoading = ref(false)
@@ -49,9 +51,39 @@ export const useMarketStore = defineStore('market', () => {
     return candlesByKey.value[candleKey(symbolId, timeframe)] ?? []
   }
 
+  function historyTtl(timeframe: SupportedTimeframe) {
+    switch (timeframe) {
+      case '5m':
+        return 60_000
+      case '15m':
+        return 2 * 60_000
+      case '30m':
+        return 5 * 60_000
+      case '1h':
+      case '2h':
+        return 10 * 60_000
+      case '4h':
+        return 20 * 60_000
+      case '1D':
+        return 60 * 60_000
+      case '1W':
+      case '2W':
+        return 6 * 60 * 60_000
+      default:
+        return 24 * 60 * 60_000
+    }
+  }
+
+  function quoteTtl(symbolId: string) {
+    const symbol = marketById(symbolId)
+    return symbol?.category === 'crypto' ? 10_000 : 30_000
+  }
+
   async function loadHistory(symbolId = currentSymbolId.value, timeframe = selectedTimeframe.value, force = false) {
     const key = candleKey(symbolId, timeframe)
-    if (!force && candlesByKey.value[key]?.length) {
+    const fetchedAt = historyFetchedAt.value[key] ?? 0
+    const isFresh = Date.now() - fetchedAt < historyTtl(timeframe)
+    if (!force && candlesByKey.value[key]?.length && isFresh) {
       return candlesByKey.value[key]
     }
 
@@ -64,12 +96,46 @@ export const useMarketStore = defineStore('market', () => {
     historyErrors.value[key] = ''
 
     try {
+      if (!force) {
+        try {
+          const sheetCandles = await readSheetHistory(symbol, timeframe, 500)
+          if (sheetCandles.length) {
+            candlesByKey.value[key] = sheetCandles
+            historyFetchedAt.value[key] = Date.now()
+            loadingHistory.value[key] = false
+
+            void (async () => {
+              try {
+                const freshCandles = await fetchHistoricalCandles({
+                  symbol,
+                  timeframe,
+                  settings: settings.value,
+                })
+                if (freshCandles.length) {
+                  candlesByKey.value[key] = freshCandles
+                  historyFetchedAt.value[key] = Date.now()
+                  await writeSheetHistory(symbol, timeframe, freshCandles)
+                }
+              } catch {
+                return
+              }
+            })()
+
+            return sheetCandles
+          }
+        } catch {
+          // Ignore sheet cache read errors and continue with market sources.
+        }
+      }
+
       const candles = await fetchHistoricalCandles({
         symbol,
         timeframe,
         settings: settings.value,
       })
       candlesByKey.value[key] = candles
+      historyFetchedAt.value[key] = Date.now()
+      void writeSheetHistory(symbol, timeframe, candles).catch(() => undefined)
       return candles
     } catch (error) {
       historyErrors.value[key] = error instanceof Error ? error.message : 'Failed to load history'
@@ -116,24 +182,29 @@ export const useMarketStore = defineStore('market', () => {
   async function refreshQuotes(symbolIds = watchlistIds.value) {
     quotesLoading.value = true
     quoteError.value = ''
+    const errors: string[] = []
 
-    try {
-      await Promise.all(
-        symbolIds.map(async (id) => {
-          const symbol = marketById(id)
-          if (!symbol) {
-            return
-          }
+    for (const id of symbolIds) {
+      const symbol = marketById(id)
+      if (!symbol) {
+        continue
+      }
 
-          const snapshot = await fetchLatestQuote(symbol, settings.value)
-          upsertQuote(snapshot)
-        }),
-      )
-    } catch (error) {
-      quoteError.value = error instanceof Error ? error.message : 'Failed to refresh quotes'
-    } finally {
-      quotesLoading.value = false
+      const current = quotes.value[id]
+      if (current && Date.now() - current.timestamp < quoteTtl(id)) {
+        continue
+      }
+
+      try {
+        const snapshot = await fetchLatestQuote(symbol, settings.value)
+        upsertQuote(snapshot)
+      } catch (error) {
+        errors.push(error instanceof Error ? error.message : `Failed quote for ${id}`)
+      }
     }
+
+    quoteError.value = errors[0] ?? ''
+    quotesLoading.value = false
   }
 
   function startPolling() {
@@ -141,7 +212,7 @@ export const useMarketStore = defineStore('market', () => {
     void refreshQuotes()
     pollingTimer = window.setInterval(() => {
       void refreshQuotes()
-    }, 5000)
+    }, 15000)
   }
 
   function stopPolling() {
@@ -233,6 +304,7 @@ export const useMarketStore = defineStore('market', () => {
     quoteError,
     candlesByKey,
     loadingHistory,
+    historyFetchedAt,
     historyErrors,
     alerts,
     chartSymbols,

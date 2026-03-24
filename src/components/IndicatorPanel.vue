@@ -11,10 +11,14 @@ const props = defineProps<{
 const emit = defineEmits<{
   toggleIndicator: [key: string]
   toggleGroup: [group: IndicatorGroup]
+  toggleAll: [enabled: boolean]
   preset: [preset: 'scalping' | 'swing' | 'longTerm']
 }>()
 
 const groups = computed(() => ['trend', 'momentum', 'volatility', 'volume', 'pattern', 'support', 'advanced'] as IndicatorGroup[])
+const allSelected = computed(
+  () => groups.value.every((group) => props.enabledGroups[group]) && INDICATORS.every((item) => props.enabledIndicators.includes(item.key)),
+)
 </script>
 
 <template>
@@ -35,6 +39,16 @@ const groups = computed(() => ['trend', 'momentum', 'volatility', 'volume', 'pat
         Long-term
       </button>
     </div>
+
+    <label class="mb-4 flex items-center justify-between rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-100">
+      <span>Select all indicators</span>
+      <input
+        :checked="allSelected"
+        class="accent-emerald-400"
+        type="checkbox"
+        @change="emit('toggleAll', ($event.target as HTMLInputElement).checked)"
+      />
+    </label>
 
     <div class="mb-4 grid gap-2 sm:grid-cols-2">
       <label
@@ -63,7 +77,7 @@ const groups = computed(() => ['trend', 'momentum', 'volatility', 'volume', 'pat
           <p class="text-xs capitalize text-slate-500">{{ indicator.group }}</p>
         </div>
         <input
-          :checked="props.enabledIndicators.includes(indicator.key)"
+          :checked="props.enabledGroups[indicator.group] && props.enabledIndicators.includes(indicator.key)"
           class="accent-emerald-400"
           type="checkbox"
           @change="emit('toggleIndicator', indicator.key)"
