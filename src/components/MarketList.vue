@@ -18,13 +18,24 @@ const emit = defineEmits<{
 
 const query = ref('')
 
-const filteredMarkets = computed(() =>
-  MARKETS.filter(
-    (item) =>
-      item.id.toLowerCase().includes(query.value.toLowerCase()) ||
-      item.label.toLowerCase().includes(query.value.toLowerCase()),
-  ),
+const watchlistMarkets = computed(() =>
+  props.watchlistIds
+    .map((id) => MARKETS.find((item) => item.id === id))
+    .filter((item): item is (typeof MARKETS)[number] => Boolean(item)),
 )
+
+const filteredMarkets = computed(() => {
+  const normalizedQuery = query.value.trim().toLowerCase()
+  if (!normalizedQuery) {
+    return watchlistMarkets.value
+  }
+
+  return MARKETS.filter(
+    (item) =>
+      item.id.toLowerCase().includes(normalizedQuery) ||
+      item.label.toLowerCase().includes(normalizedQuery),
+  )
+})
 
 function quickAlert(symbolId: string, price: number) {
   emit('addAlert', symbolId, price, 'above')

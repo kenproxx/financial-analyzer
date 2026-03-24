@@ -1,13 +1,33 @@
 import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { DEFAULT_SETTINGS, DEFAULT_WATCHLIST, MARKETS, STORAGE_KEYS } from '../constants/markets'
-import type { OHLCV, PriceAlert, PriceSnapshot, SupportedTimeframe } from '../types/market'
+import type { AppSettings, OHLCV, PriceAlert, PriceSnapshot, SupportedTimeframe } from '../types/market'
 import { fetchHistoricalCandles, fetchLatestQuote, buildCacheKey, marketById } from '../utils/marketData'
 import { readSheetHistory, writeSheetHistory } from '../utils/googleSheetsCache'
 import { readLocalStorage, uid, writeLocalStorage } from '../utils/storage'
 
+type PersistedSettings = Pick<AppSettings, 'theme' | 'multiChartCount'>
+
+function readPersistedSettings(): PersistedSettings {
+  const stored = readLocalStorage(STORAGE_KEYS.settings, {}) as Partial<AppSettings>
+  return {
+    theme: stored.theme === 'light' ? 'light' : DEFAULT_SETTINGS.theme,
+    multiChartCount:
+      stored.multiChartCount === 1 || stored.multiChartCount === 2 || stored.multiChartCount === 4
+        ? stored.multiChartCount
+        : DEFAULT_SETTINGS.multiChartCount,
+  }
+}
+
+function toPersistedSettings(settings: AppSettings): PersistedSettings {
+  return {
+    theme: settings.theme,
+    multiChartCount: settings.multiChartCount,
+  }
+}
+
 export const useMarketStore = defineStore('market', () => {
-  const settings = ref({ ...DEFAULT_SETTINGS, ...readLocalStorage(STORAGE_KEYS.settings, {}) })
+  const settings = ref<AppSettings>({ ...DEFAULT_SETTINGS, ...readPersistedSettings() })
   const watchlistIds = ref<string[]>(readLocalStorage(STORAGE_KEYS.watchlist, DEFAULT_WATCHLIST))
   const alerts = ref<PriceAlert[]>(readLocalStorage(STORAGE_KEYS.alerts, []))
   const currentSymbolId = ref(watchlistIds.value[0] ?? MARKETS[0].id)
@@ -31,6 +51,10 @@ export const useMarketStore = defineStore('market', () => {
     const symbols = [currentSymbol.value, ...watchlist.value.filter((item) => item.id !== currentSymbol.value.id)]
     return symbols.slice(0, settings.value.multiChartCount)
   })
+
+  function quoteSymbolIds(symbolIds = watchlistIds.value) {
+    return Array.from(new Set([...symbolIds, currentSymbolId.value]))
+  }
 
   function applyTheme(theme: 'dark' | 'light') {
     document.documentElement.classList.toggle('dark', theme === 'dark')
@@ -179,7 +203,7 @@ export const useMarketStore = defineStore('market', () => {
     }
   }
 
-  async function refreshQuotes(symbolIds = watchlistIds.value) {
+  async function refreshQuotes(symbolIds = quoteSymbolIds()) {
     quotesLoading.value = true
     quoteError.value = ''
     const errors: string[] = []
@@ -289,7 +313,7 @@ export const useMarketStore = defineStore('market', () => {
   }
 
   watch(watchlistIds, (value) => writeLocalStorage(STORAGE_KEYS.watchlist, value), { deep: true })
-  watch(settings, (value) => writeLocalStorage(STORAGE_KEYS.settings, value), { deep: true })
+  watch(settings, (value) => writeLocalStorage(STORAGE_KEYS.settings, toPersistedSettings(value)), { deep: true })
   watch(alerts, (value) => writeLocalStorage(STORAGE_KEYS.alerts, value), { deep: true })
 
   return {
@@ -311,6 +335,7 @@ export const useMarketStore = defineStore('market', () => {
     init,
     candleKey,
     candlesFor,
+    quoteSymbolIds,
     loadHistory,
     refreshQuotes,
     startPolling,

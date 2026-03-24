@@ -54,6 +54,11 @@ export function marketById(symbolId: string) {
   return MARKETS.find((item) => item.id === symbolId)
 }
 
+export function marketByBinanceSymbol(binanceSymbol: string) {
+  const normalized = binanceSymbol.trim().toLowerCase()
+  return MARKETS.find((item) => item.binanceSymbol?.toLowerCase() === normalized)
+}
+
 export function buildCacheKey(symbol: string, timeframe: SupportedTimeframe) {
   return `${symbol}:${timeframe}`
 }

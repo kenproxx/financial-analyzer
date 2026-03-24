@@ -11,7 +11,8 @@ import { useWebSocket } from './composables/useWebSocket'
 import { useAiStore } from './stores/aiStore'
 import { useIndicatorStore } from './stores/indicatorStore'
 import { useMarketStore } from './stores/marketStore'
-import { convertBinanceKline, parseFinnhubQuote, timeframeConfig } from './utils/marketData'
+import type { SupportedTimeframe } from './types/market'
+import { convertBinanceKline, marketByBinanceSymbol, parseFinnhubQuote, timeframeConfig } from './utils/marketData'
 
 const marketStore = useMarketStore()
 const indicatorStore = useIndicatorStore()
@@ -19,6 +20,9 @@ const aiStore = useAiStore()
 
 const alertTarget = ref('')
 const alertDirection = ref<'above' | 'below'>('above')
+const activeBinanceSymbolId = ref<string | null>(null)
+const activeBinanceTimeframe = ref<SupportedTimeframe | null>(null)
+const activeBinanceInterval = ref<string | null>(null)
 let historyRefreshTimer: number | null = null
 let matrixRefreshTimer: number | null = null
 
@@ -28,36 +32,71 @@ const historyLoading = computed(
   () => marketStore.loadingHistory[marketStore.candleKey(marketStore.currentSymbolId, marketStore.selectedTimeframe)],
 )
 
+function maybeAnalyzeCurrentView() {
+  if (!marketStore.settings.openAiKey) {
+    return
+  }
+
+  const symbolId = marketStore.currentSymbolId
+  const timeframe = marketStore.selectedTimeframe
+  const insight = aiStore.insights[`${symbolId}:${timeframe}`]
+  const quote = marketStore.quotes[symbolId]
+  const analysis = indicatorStore.analysisFor(symbolId, timeframe)
+
+  if (insight?.loading || insight?.content || insight?.error || !quote || !analysis) {
+    return
+  }
+
+  void aiStore.analyze(symbolId, timeframe, false)
+}
+
 const binanceSocket = useWebSocket({
   url: () => {
     const symbol = marketStore.currentSymbol
     if (symbol.category !== 'crypto' || !symbol.binanceSymbol) {
+      activeBinanceSymbolId.value = null
+      activeBinanceTimeframe.value = null
+      activeBinanceInterval.value = null
       return null
     }
 
-    const interval = timeframeConfig(marketStore.selectedTimeframe).binanceInterval
+    const timeframe = marketStore.selectedTimeframe
+    const interval = timeframeConfig(timeframe).binanceInterval
+    activeBinanceSymbolId.value = symbol.id
+    activeBinanceTimeframe.value = timeframe
+    activeBinanceInterval.value = interval
     return `wss://stream.binance.com:9443/ws/${symbol.binanceSymbol}@kline_${interval}`
   },
   autoReconnect: true,
   onMessage: (event) => {
     const payload = JSON.parse(event.data) as Record<string, unknown>
+    const payloadSymbol = String(payload.s ?? (payload.k as Record<string, unknown> | undefined)?.s ?? '')
+    const payloadInterval = String((payload.k as Record<string, unknown> | undefined)?.i ?? '')
+    const streamSymbolId = marketByBinanceSymbol(payloadSymbol)?.id ?? activeBinanceSymbolId.value
+    const streamTimeframe = activeBinanceTimeframe.value
     const candle = convertBinanceKline(payload)
-    if (!candle) {
+    if (
+      !candle ||
+      !streamSymbolId ||
+      !streamTimeframe ||
+      (activeBinanceSymbolId.value && streamSymbolId !== activeBinanceSymbolId.value) ||
+      (activeBinanceInterval.value && payloadInterval && payloadInterval !== activeBinanceInterval.value)
+    ) {
       return
     }
 
     const isClosed = Boolean((payload.k as Record<string, unknown> | undefined)?.x)
-    marketStore.upsertRealtimeCandle(marketStore.currentSymbolId, marketStore.selectedTimeframe, candle, isClosed)
+    marketStore.upsertRealtimeCandle(streamSymbolId, streamTimeframe, candle, isClosed)
     marketStore.upsertQuote({
-      symbol: marketStore.currentSymbolId,
+      symbol: streamSymbolId,
       price: candle.close,
-      changePercent: marketStore.quotes[marketStore.currentSymbolId]?.changePercent ?? 0,
+      changePercent: marketStore.quotes[streamSymbolId]?.changePercent ?? 0,
       source: 'binance',
       timestamp: candle.time,
       volume: candle.volume,
     })
     if (isClosed) {
-      void indicatorStore.compute(marketStore.currentSymbolId, marketStore.selectedTimeframe, true)
+      void indicatorStore.compute(streamSymbolId, streamTimeframe, true)
     }
   },
 })
@@ -83,9 +122,13 @@ const finnhubSocket = useWebSocket({
   },
 })
 
-async function syncActiveView(forceHistory = false) {
-  await marketStore.loadHistory(marketStore.currentSymbolId, marketStore.selectedTimeframe, forceHistory)
-  await indicatorStore.compute(marketStore.currentSymbolId, marketStore.selectedTimeframe, forceHistory)
+async function syncVisibleCharts(forceHistory = false) {
+  await Promise.all(
+    marketStore.chartSymbols.map(async (chartSymbol) => {
+      await marketStore.loadHistory(chartSymbol.id, marketStore.selectedTimeframe, forceHistory)
+      await indicatorStore.compute(chartSymbol.id, marketStore.selectedTimeframe, forceHistory)
+    }),
+  )
 }
 
 function openMatrixCell(symbolId: string, timeframe: (typeof SIGNAL_MATRIX_TIMEFRAMES)[number]) {
@@ -109,12 +152,13 @@ function refreshMatrix(forceHistory = false) {
 
 onMounted(async () => {
   marketStore.init()
-  await syncActiveView(false)
+  await syncVisibleCharts(false)
   marketStore.startPolling()
   refreshMatrix(false)
+  maybeAnalyzeCurrentView()
 
   historyRefreshTimer = window.setInterval(() => {
-    void syncActiveView(false)
+    void syncVisibleCharts(false)
   }, 120000)
 
   matrixRefreshTimer = window.setInterval(() => {
@@ -125,12 +169,13 @@ onMounted(async () => {
 watch(
   () => [marketStore.currentSymbolId, marketStore.selectedTimeframe] as const,
   () => {
-    void syncActiveView(false)
+    void marketStore.refreshQuotes([marketStore.currentSymbolId])
     if (marketStore.currentSymbol.category === 'crypto') {
       binanceSocket.reconnect()
     } else {
       binanceSocket.disconnect()
     }
+    maybeAnalyzeCurrentView()
   },
   { immediate: true },
 )
@@ -150,7 +195,7 @@ watch(
 watch(
   () => indicatorStore.activeIndicators.map((item) => item.key).join(','),
   () => {
-    void indicatorStore.compute(marketStore.currentSymbolId, marketStore.selectedTimeframe, false)
+    void syncVisibleCharts(false)
     refreshMatrix(false)
   },
 )
@@ -159,8 +204,32 @@ watch(
   () => marketStore.watchlistIds.join(','),
   () => {
     void marketStore.refreshQuotes()
+    void syncVisibleCharts(false)
     refreshMatrix(false)
   },
+)
+
+watch(
+  () => [marketStore.chartSymbols.map((item) => item.id).join(','), marketStore.selectedTimeframe] as const,
+  () => {
+    void syncVisibleCharts(false)
+  },
+  { immediate: true },
+)
+
+watch(
+  () => [
+    marketStore.currentSymbolId,
+    marketStore.selectedTimeframe,
+    marketStore.quotes[marketStore.currentSymbolId]?.timestamp ?? 0,
+    (currentAnalysis.value as { computedAt?: number } | undefined)?.computedAt ?? 0,
+    currentInsight.value?.content ?? '',
+    currentInsight.value?.loading ?? false,
+  ] as const,
+  () => {
+    maybeAnalyzeCurrentView()
+  },
+  { immediate: true },
 )
 
 onBeforeUnmount(() => {
@@ -222,46 +291,18 @@ onBeforeUnmount(() => {
           <section class="rounded-3xl border border-slate-800 bg-slate-950/70 p-4 shadow-2xl shadow-slate-950/30">
             <div class="mb-4">
               <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Settings</p>
-              <h2 class="font-display text-lg text-slate-100">API keys & alerts</h2>
+              <h2 class="font-display text-lg text-slate-100">Environment & alerts</h2>
             </div>
 
             <div class="grid gap-3">
-              <label class="grid gap-2 text-sm text-slate-300">
-                Finnhub Key
-                <input
-                  :value="marketStore.settings.finnhubKey"
-                  class="rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-3 outline-none focus:border-emerald-400"
-                  type="password"
-                  @input="marketStore.updateSettings({ finnhubKey: ($event.target as HTMLInputElement).value })"
-                />
-              </label>
-              <label class="grid gap-2 text-sm text-slate-300">
-                Alpha Vantage Key
-                <input
-                  :value="marketStore.settings.alphaVantageKey"
-                  class="rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-3 outline-none focus:border-emerald-400"
-                  type="password"
-                  @input="marketStore.updateSettings({ alphaVantageKey: ($event.target as HTMLInputElement).value })"
-                />
-              </label>
-              <label class="grid gap-2 text-sm text-slate-300">
-                OpenAI Key
-                <input
-                  :value="marketStore.settings.openAiKey"
-                  class="rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-3 outline-none focus:border-emerald-400"
-                  type="password"
-                  @input="marketStore.updateSettings({ openAiKey: ($event.target as HTMLInputElement).value })"
-                />
-              </label>
-              <label class="grid gap-2 text-sm text-slate-300">
-                OpenAI Model
-                <input
-                  :value="marketStore.settings.openAiModel"
-                  class="rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-3 outline-none focus:border-emerald-400"
-                  type="text"
-                  @input="marketStore.updateSettings({ openAiModel: ($event.target as HTMLInputElement).value })"
-                />
-              </label>
+              <div class="rounded-2xl border border-slate-800 bg-slate-900/40 p-4 text-sm text-slate-300">
+                <p class="text-slate-100">API keys được nạp hoàn toàn từ biến môi trường.</p>
+                <p class="mt-1 text-slate-500">Finnhub, Alpha Vantage và OpenAI không còn chỉnh trực tiếp trên UI.</p>
+              </div>
+              <div class="rounded-2xl border border-slate-800 bg-slate-900/40 p-4 text-sm text-slate-300">
+                <p class="text-slate-100">OpenAI model</p>
+                <p class="mt-1 text-slate-500">{{ marketStore.settings.openAiModel || 'Chưa cấu hình' }}</p>
+              </div>
             </div>
 
             <div class="mt-6 rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
@@ -308,7 +349,7 @@ onBeforeUnmount(() => {
                 <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Timeframe</p>
                 <h2 class="font-display text-lg text-slate-100">Khung thời gian</h2>
               </div>
-              <button class="rounded-full border border-slate-700 px-3 py-1.5 text-xs text-slate-200" @click="syncActiveView(true)">
+              <button class="rounded-full border border-slate-700 px-3 py-1.5 text-xs text-slate-200" @click="syncVisibleCharts(true)">
                 Reload history
               </button>
             </div>
