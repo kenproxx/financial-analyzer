@@ -1,8 +1,9 @@
 import { readSheetHistory, writeSheetHistory } from './_lib/google-sheets'
 
 function sendJson(res: any, status: number, payload: unknown) {
-  res.status(status).setHeader('Content-Type', 'application/json; charset=utf-8')
-  res.send(JSON.stringify(payload))
+  res.statusCode = status
+  res.setHeader('Content-Type', 'application/json; charset=utf-8')
+  res.end(JSON.stringify(payload))
 }
 
 export default async function handler(req: any, res: any) {
