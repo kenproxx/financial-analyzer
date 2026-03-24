@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@libsql/client": "^0.17.2",
     "axios": "^1.13.6",
     "lightweight-charts": "^5.1.0",
     "pinia": "^3.0.4",

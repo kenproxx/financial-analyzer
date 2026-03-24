@@ -123,12 +123,22 @@ const finnhubSocket = useWebSocket({
 })
 
 async function syncVisibleCharts(forceHistory = false) {
-  await Promise.all(
-    marketStore.chartSymbols.map(async (chartSymbol) => {
-      await marketStore.loadHistory(chartSymbol.id, marketStore.selectedTimeframe, forceHistory)
-      await indicatorStore.compute(chartSymbol.id, marketStore.selectedTimeframe, forceHistory)
-    }),
-  )
+  await syncCurrentChart(forceHistory)
+  await syncSecondaryCharts(forceHistory)
+}
+
+async function syncChart(symbolId: string, timeframe: SupportedTimeframe, forceHistory = false) {
+  await marketStore.loadHistory(symbolId, timeframe, forceHistory)
+  await indicatorStore.compute(symbolId, timeframe, forceHistory)
+}
+
+async function syncCurrentChart(forceHistory = false) {
+  await syncChart(marketStore.currentSymbolId, marketStore.selectedTimeframe, forceHistory)
+}
+
+async function syncSecondaryCharts(forceHistory = false) {
+  const secondaryCharts = marketStore.chartSymbols.filter((item) => item.id !== marketStore.currentSymbolId)
+  await Promise.all(secondaryCharts.map((chartSymbol) => syncChart(chartSymbol.id, marketStore.selectedTimeframe, forceHistory)))
 }
 
 function openMatrixCell(symbolId: string, timeframe: (typeof SIGNAL_MATRIX_TIMEFRAMES)[number]) {
@@ -152,13 +162,15 @@ function refreshMatrix(forceHistory = false) {
 
 onMounted(async () => {
   marketStore.init()
-  await syncVisibleCharts(false)
+  await syncCurrentChart(false)
+  void syncSecondaryCharts(false)
   marketStore.startPolling()
   refreshMatrix(false)
   maybeAnalyzeCurrentView()
 
   historyRefreshTimer = window.setInterval(() => {
-    void syncVisibleCharts(false)
+    void syncCurrentChart(false)
+    void syncSecondaryCharts(false)
   }, 120000)
 
   matrixRefreshTimer = window.setInterval(() => {
@@ -170,6 +182,8 @@ watch(
   () => [marketStore.currentSymbolId, marketStore.selectedTimeframe] as const,
   () => {
     void marketStore.refreshQuotes([marketStore.currentSymbolId])
+    void syncCurrentChart(false)
+    void syncSecondaryCharts(false)
     if (marketStore.currentSymbol.category === 'crypto') {
       binanceSocket.reconnect()
     } else {
@@ -210,11 +224,10 @@ watch(
 )
 
 watch(
-  () => [marketStore.chartSymbols.map((item) => item.id).join(','), marketStore.selectedTimeframe] as const,
+  () => marketStore.chartSymbols.map((item) => item.id).join(','),
   () => {
-    void syncVisibleCharts(false)
+    void syncSecondaryCharts(false)
   },
-  { immediate: true },
 )
 
 watch(

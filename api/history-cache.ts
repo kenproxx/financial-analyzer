@@ -1,4 +1,4 @@
-import { readSheetHistory, writeSheetHistory } from './_lib/google-sheets'
+import { isHistoryCacheConfigured, readHistoryCache, writeHistoryCache } from './_lib/history-cache'
 
 function sendJson(res: any, status: number, payload: unknown) {
   res.statusCode = status
@@ -7,6 +7,10 @@ function sendJson(res: any, status: number, payload: unknown) {
 }
 
 export default async function handler(req: any, res: any) {
+  if (!isHistoryCacheConfigured()) {
+    return sendJson(res, 503, { ok: false, error: 'History cache is not configured. Missing Turso env.' })
+  }
+
   if (req.method === 'GET') {
     const symbol = String(req.query.symbol || '')
     const timeframe = String(req.query.timeframe || '')
@@ -17,10 +21,10 @@ export default async function handler(req: any, res: any) {
     }
 
     try {
-      const payload = await readSheetHistory(symbol, timeframe, limit)
-      return sendJson(res, 200, payload)
+      const candles = await readHistoryCache(symbol, timeframe, limit)
+      return sendJson(res, 200, { ok: true, candles })
     } catch (error) {
-      return sendJson(res, 502, { ok: false, error: error instanceof Error ? error.message : 'Sheets cache read failed' })
+      return sendJson(res, 502, { ok: false, error: error instanceof Error ? error.message : 'History cache read failed' })
     }
   }
 
@@ -29,16 +33,18 @@ export default async function handler(req: any, res: any) {
     const symbol = String(payload.symbol || '')
     const timeframe = String(payload.timeframe || '')
     const candles = Array.isArray(payload.candles) ? payload.candles : []
+    const assetCategory = payload.assetCategory ? String(payload.assetCategory) : undefined
+    const source = payload.source ? String(payload.source) : undefined
 
     if (!symbol || !timeframe) {
       return sendJson(res, 400, { ok: false, error: 'Missing symbol or timeframe' })
     }
 
     try {
-      const result = await writeSheetHistory(symbol, timeframe, candles)
+      const result = await writeHistoryCache(symbol, timeframe, candles, { assetCategory, source })
       return sendJson(res, 200, result)
     } catch (error) {
-      return sendJson(res, 502, { ok: false, error: error instanceof Error ? error.message : 'Sheets cache write failed' })
+      return sendJson(res, 502, { ok: false, error: error instanceof Error ? error.message : 'History cache write failed' })
     }
   }
 

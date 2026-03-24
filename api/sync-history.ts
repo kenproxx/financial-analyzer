@@ -1,5 +1,5 @@
 import { fetchHistoricalCandles, parseSupportedTimeframes, parseSyncSymbols } from './_lib/market-data'
-import { isSheetsCacheConfigured, writeSheetHistory } from './_lib/google-sheets'
+import { isHistoryCacheConfigured, writeHistoryCache } from './_lib/history-cache'
 
 function sendJson(res: any, status: number, payload: unknown) {
   res.statusCode = status
@@ -29,8 +29,8 @@ export default async function handler(req: any, res: any) {
     return sendJson(res, 401, { ok: false, error: 'Unauthorized' })
   }
 
-  if (!isSheetsCacheConfigured()) {
-    return sendJson(res, 500, { ok: false, error: 'Missing GOOGLE_SHEETS_WEB_APP_URL' })
+  if (!isHistoryCacheConfigured()) {
+    return sendJson(res, 500, { ok: false, error: 'Missing TURSO_DATABASE_URL or TURSO_AUTH_TOKEN' })
   }
 
   const symbols = parseSyncSymbols(process.env.SYNC_SYMBOLS || req.query.symbols)
@@ -41,7 +41,10 @@ export default async function handler(req: any, res: any) {
     for (const timeframe of timeframes) {
       try {
         const candles = await fetchHistoricalCandles(symbol, timeframe)
-        await writeSheetHistory(symbol.id, timeframe, candles)
+        await writeHistoryCache(symbol.id, timeframe, candles, {
+          assetCategory: symbol.category,
+          source: symbol.category === 'crypto' && symbol.binanceSymbol ? 'binance/yahoo' : 'yahoo/alphaVantage',
+        })
         results.push({
           symbol: symbol.id,
           timeframe,

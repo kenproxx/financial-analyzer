@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import type { InsightResult, SupportedTimeframe } from '../types/market'
+import { marketById } from '../utils/marketData'
 import { useIndicatorStore } from './indicatorStore'
 import { useMarketStore } from './marketStore'
 
@@ -12,6 +13,7 @@ function insightKey(symbol: string, timeframe: SupportedTimeframe) {
 
 export const useAiStore = defineStore('ai', () => {
   const insights = ref<Record<string, InsightResult>>({})
+  const pending = new Map<string, Promise<InsightResult>>()
 
   async function analyze(symbolId: string, timeframe: SupportedTimeframe, force = false) {
     const marketStore = useMarketStore()
@@ -23,6 +25,11 @@ export const useAiStore = defineStore('ai', () => {
       return cached
     }
 
+    const inFlight = pending.get(key)
+    if (inFlight) {
+      return inFlight
+    }
+
     if (!marketStore.settings.openAiKey) {
       insights.value[key] = {
         symbol: symbolId,
@@ -30,23 +37,7 @@ export const useAiStore = defineStore('ai', () => {
         content: '',
         createdAt: Date.now(),
         loading: false,
-        error: 'Thiếu OpenAI API key trong Settings.',
-      }
-      return insights.value[key]
-    }
-
-    const symbol = marketStore.currentSymbol.id === symbolId ? marketStore.currentSymbol : marketStore.watchlist.find((item) => item.id === symbolId)
-    const quote = marketStore.quotes[symbolId]
-    const analysis = (await indicatorStore.ensure(symbolId, timeframe)) as any
-
-    if (!symbol || !quote || !analysis) {
-      insights.value[key] = {
-        symbol: symbolId,
-        timeframe,
-        content: '',
-        createdAt: Date.now(),
-        loading: false,
-        error: 'Chưa đủ dữ liệu để phân tích AI.',
+        error: 'Thieu OpenAI API key tu environment.',
       }
       return insights.value[key]
     }
@@ -59,98 +50,126 @@ export const useAiStore = defineStore('ai', () => {
       loading: true,
     }
 
-    const response = await fetch('/api/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${marketStore.settings.openAiKey}`,
-      },
-      body: JSON.stringify({
-        model: marketStore.settings.openAiModel,
-        temperature: 0.3,
-        stream: true,
-        messages: [
-          {
-            role: 'system',
-            content: 'Bạn là chuyên gia phân tích tài chính. Hãy phân tích dựa trên dữ liệu kỹ thuật và tình hình thị trường.',
-          },
-          {
-            role: 'user',
-            content: `Tài sản: ${symbol.label} (${symbol.id}). Giá hiện tại: ${quote.price}.
+    const task = (async () => {
+      const symbol = marketById(symbolId)
+      const quote = marketStore.quotes[symbolId]
+      const analysis = (indicatorStore.analysisFor(symbolId, timeframe) ?? (await indicatorStore.ensure(symbolId, timeframe))) as any
+
+      if (!symbol || !quote || !analysis) {
+        insights.value[key] = {
+          symbol: symbolId,
+          timeframe,
+          content: '',
+          createdAt: Date.now(),
+          loading: false,
+          error: 'Chua du du lieu de phan tich AI.',
+        }
+        return insights.value[key]
+      }
+
+      const response = await fetch('/api/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${marketStore.settings.openAiKey}`,
+        },
+        body: JSON.stringify({
+          model: marketStore.settings.openAiModel,
+          temperature: 0.2,
+          max_tokens: 420,
+          stream: true,
+          messages: [
+            {
+              role: 'system',
+              content: 'Ban la chuyen gia phan tich tai chinh. Tra loi ngan, ro, uu tien quyet dinh giao dich thuc dung.',
+            },
+            {
+              role: 'user',
+              content: `Phan tich nhanh ${symbol.label} (${symbol.id}) khung ${timeframe}.
+Gia hien tai: ${quote.price}.
 RSI(14): ${analysis.summaries.rsi?.current ?? '--'}.
 MACD: ${analysis.summaries.macd?.current ?? '--'}.
 ADX: ${analysis.summaries.adx?.current ?? '--'}.
-Trend: ${analysis.aggregate.conclusion}.
-Tín hiệu kỹ thuật tổng hợp: MUA ${analysis.aggregate.buy}, BÁN ${analysis.aggregate.sell}, TRUNG LẬP ${analysis.aggregate.neutral}.
-Hãy:
-1) Tóm tắt tình hình thị trường toàn cầu ảnh hưởng đến ${symbol.id} hôm nay.
-2) Phân tích thêm dựa trên technical + macro.
-3) Khuyến nghị MUA/BÁN/HOLD với mức giá entry, stop loss, take profit.`,
-          },
-        ],
-      }),
-    })
+Ket luan xu huong: ${analysis.aggregate.conclusion}.
+Tin hieu tong hop: mua ${analysis.aggregate.buy}, ban ${analysis.aggregate.sell}, trung lap ${analysis.aggregate.neutral}.
 
-    if (!response.ok || !response.body) {
-      insights.value[key] = {
-        symbol: symbolId,
-        timeframe,
-        content: '',
-        createdAt: Date.now(),
-        loading: false,
-        error: `OpenAI request failed (${response.status})`,
-      }
-      return insights.value[key]
-    }
+Tra loi dung 3 phan:
+1. Tom tat nhanh market context hom nay cho ${symbol.id} trong 2 cau.
+2. Nhan dinh technical chinh trong 3 bullet ngan.
+3. Khuyen nghi BUY/SELL/HOLD voi entry, stop loss, take profit.`,
+            },
+          ],
+        }),
+      })
 
-    const reader = response.body.getReader()
-    const decoder = new TextDecoder()
-    let buffer = ''
-
-    while (true) {
-      const { value, done } = await reader.read()
-      if (done) {
-        break
+      if (!response.ok || !response.body) {
+        insights.value[key] = {
+          symbol: symbolId,
+          timeframe,
+          content: '',
+          createdAt: Date.now(),
+          loading: false,
+          error: `OpenAI request failed (${response.status})`,
+        }
+        return insights.value[key]
       }
 
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n')
-      buffer = lines.pop() ?? ''
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
 
-      for (const line of lines) {
-        const trimmed = line.trim()
-        if (!trimmed.startsWith('data:')) {
-          continue
+      while (true) {
+        const { value, done } = await reader.read()
+        if (done) {
+          break
         }
 
-        const payload = trimmed.replace(/^data:\s*/, '')
-        if (payload === '[DONE]') {
-          continue
-        }
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() ?? ''
 
-        try {
-          const parsed = JSON.parse(payload)
-          const chunk = parsed.choices?.[0]?.delta?.content ?? ''
-          insights.value[key] = {
-            symbol: symbolId,
-            timeframe,
-            content: `${insights.value[key]?.content ?? ''}${chunk}`,
-            createdAt: Date.now(),
-            loading: true,
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed.startsWith('data:')) {
+            continue
           }
-        } catch {
-          continue
+
+          const payload = trimmed.replace(/^data:\s*/, '')
+          if (payload === '[DONE]') {
+            continue
+          }
+
+          try {
+            const parsed = JSON.parse(payload)
+            const chunk = parsed.choices?.[0]?.delta?.content ?? ''
+            insights.value[key] = {
+              symbol: symbolId,
+              timeframe,
+              content: `${insights.value[key]?.content ?? ''}${chunk}`,
+              createdAt: Date.now(),
+              loading: true,
+            }
+          } catch {
+            continue
+          }
         }
       }
-    }
 
-    insights.value[key] = {
-      ...insights.value[key],
-      loading: false,
-      createdAt: Date.now(),
-    }
+      insights.value[key] = {
+        ...insights.value[key],
+        loading: false,
+        createdAt: Date.now(),
+      }
 
-    return insights.value[key]
+      return insights.value[key]
+    })()
+
+    pending.set(key, task)
+    try {
+      return await task
+    } finally {
+      pending.delete(key)
+    }
   }
 
   return {

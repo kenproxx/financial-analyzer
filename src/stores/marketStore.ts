@@ -2,8 +2,8 @@ import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { DEFAULT_SETTINGS, DEFAULT_WATCHLIST, MARKETS, STORAGE_KEYS } from '../constants/markets'
 import type { AppSettings, OHLCV, PriceAlert, PriceSnapshot, SupportedTimeframe } from '../types/market'
+import { readHistoryCache, writeHistoryCache } from '../utils/historyCache'
 import { fetchHistoricalCandles, fetchLatestQuote, buildCacheKey, marketById } from '../utils/marketData'
-import { readSheetHistory, writeSheetHistory } from '../utils/googleSheetsCache'
 import { readLocalStorage, uid, writeLocalStorage } from '../utils/storage'
 
 type PersistedSettings = Pick<AppSettings, 'theme' | 'multiChartCount'>
@@ -122,9 +122,9 @@ export const useMarketStore = defineStore('market', () => {
     try {
       if (!force) {
         try {
-          const sheetCandles = await readSheetHistory(symbol, timeframe, 500)
-          if (sheetCandles.length) {
-            candlesByKey.value[key] = sheetCandles
+          const cachedCandles = await readHistoryCache(symbol, timeframe, 500)
+          if (cachedCandles.length) {
+            candlesByKey.value[key] = cachedCandles
             historyFetchedAt.value[key] = Date.now()
             loadingHistory.value[key] = false
 
@@ -138,17 +138,17 @@ export const useMarketStore = defineStore('market', () => {
                 if (freshCandles.length) {
                   candlesByKey.value[key] = freshCandles
                   historyFetchedAt.value[key] = Date.now()
-                  await writeSheetHistory(symbol, timeframe, freshCandles)
+                  await writeHistoryCache(symbol, timeframe, freshCandles)
                 }
               } catch {
                 return
               }
             })()
 
-            return sheetCandles
+            return cachedCandles
           }
         } catch {
-          // Ignore sheet cache read errors and continue with market sources.
+          // Ignore cache read errors and continue with market sources.
         }
       }
 
@@ -159,7 +159,7 @@ export const useMarketStore = defineStore('market', () => {
       })
       candlesByKey.value[key] = candles
       historyFetchedAt.value[key] = Date.now()
-      void writeSheetHistory(symbol, timeframe, candles).catch(() => undefined)
+      void writeHistoryCache(symbol, timeframe, candles).catch(() => undefined)
       return candles
     } catch (error) {
       historyErrors.value[key] = error instanceof Error ? error.message : 'Failed to load history'

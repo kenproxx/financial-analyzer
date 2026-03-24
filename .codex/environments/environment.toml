@@ -3,13 +3,14 @@ version = 1
 name = "financial-analyzer"
 
 [setup]
-script = ""
+script = "npm i"
 
 [[actions]]
 name = "Run"
 icon = "run"
-command = '''
-npm i
-npm build
-npm run dev
-'''
+command = "npm run dev"
+
+[[actions]]
+name = "run"
+icon = "run"
+command = "npm run dev"

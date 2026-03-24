@@ -1,11 +1,11 @@
 # Financial Analyzer Frontend
 
-Ung dung web local bang Vue 3 + Vite + Pinia + TailwindCSS de theo doi gia realtime, chart nen va phan tich ky thuat.
+Ung dung web local bang Vue 3 + Vite + Pinia + TailwindCSS de theo doi gia realtime, chart nen, phan tich ky thuat va AI insight.
 
 ## Chay local
 
 ```powershell
-cd D:\Projects\financial-analyzer\frontend
+cd D:\Projects\financial-analyzer
 copy .env.example .env
 npm install
 npm run dev
@@ -23,14 +23,9 @@ VITE_OPENAI_MODEL=gpt-4o
 VITE_THEME=dark
 VITE_MULTI_CHART_COUNT=2
 
-VITE_GOOGLE_SHEETS_ENABLED=false
-# Chi can cho local dev proxy bang Vite:
-VITE_GOOGLE_SHEETS_WEB_APP_URL=
-VITE_GOOGLE_SHEETS_SECRET=
+TURSO_DATABASE_URL=
+TURSO_AUTH_TOKEN=
 
-# Chi can tren Vercel Functions / server-side:
-GOOGLE_SHEETS_WEB_APP_URL=
-GOOGLE_SHEETS_SECRET=
 CRON_SECRET=
 SYNC_SYMBOLS=BTCUSD,ETHUSD,XAUUSD,EURUSD,VCB,HPG
 SYNC_TIMEFRAMES=15m,1h,4h,1D
@@ -38,76 +33,31 @@ SYNC_TIMEFRAMES=15m,1h,4h,1D
 
 Gia tri trong `.env` la mac dinh ban dau. Neu site da co `localStorage`, settings da luu se override env.
 
-## Google Sheets Cache
+## Turso History Cache
 
-App quay lai co che cu: dung Google Apps Script Web App de doc va ghi history OHLCV.
+App da bo Google Sheets va chuyen sang Turso de luu cache lich su OHLCV.
 
-Thiet lap local:
+Thanh phan chinh:
 
-```env
-VITE_GOOGLE_SHEETS_ENABLED=true
-VITE_GOOGLE_SHEETS_WEB_APP_URL=<web-app-url>
-VITE_GOOGLE_SHEETS_SECRET=<your-secret>
-```
+- Client cache helper: [src/utils/historyCache.ts](D:/Projects/financial-analyzer/src/utils/historyCache.ts)
+- Vercel / dev API route: [api/history-cache.ts](D:/Projects/financial-analyzer/api/history-cache.ts)
+- Turso server helper: [api/_lib/history-cache.ts](D:/Projects/financial-analyzer/api/_lib/history-cache.ts)
+- Schema: [db/turso-schema.sql](D:/Projects/financial-analyzer/db/turso-schema.sql)
 
-Contract:
+Schema toi uu cho workload hien tai:
 
-- `GET {WEB_APP_URL}?action=history&symbol=BTCUSD&timeframe=1h&limit=500&secret=...`
-- `POST {WEB_APP_URL}` voi body JSON:
-
-```json
-{
-  "action": "upsertHistory",
-  "secret": "your-secret",
-  "symbol": "BTCUSD",
-  "timeframe": "1h",
-  "candles": [
-    {
-      "time": 1710000000000,
-      "open": 62000,
-      "high": 62500,
-      "low": 61800,
-      "close": 62400,
-      "volume": 123.45
-    }
-  ]
-}
-```
-
-File Apps Script mau:
-
-- [google-apps-script/Code.gs.example](D:/Projects/financial-analyzer/frontend/google-apps-script/Code.gs.example)
-
-Trien khai nhanh:
-
-1. Tao Google Sheet moi.
-2. Mo `Extensions -> Apps Script`.
-3. Dan noi dung tu `Code.gs.example`.
-4. Trong `Project Settings`, them `Script property` ten `APP_SECRET`.
-5. Deploy duoi dang `Web app`, `Execute as: Me`, `Who has access: Anyone`.
-6. Dien `VITE_GOOGLE_SHEETS_ENABLED=true`.
-7. Dien `VITE_GOOGLE_SHEETS_WEB_APP_URL=<web-app-url>`.
-8. Dien `VITE_GOOGLE_SHEETS_SECRET=<same-secret>`.
-
-Luu y:
-
-- Khi chay local bang `npm run dev`, app se goi Google Apps Script qua proxy `/api/sheets-cache` cua Vite de tranh loi CORS.
-- Neu ban vua doi `VITE_GOOGLE_SHEETS_WEB_APP_URL`, hay restart lai dev server de proxy nap URL moi.
+- Kho chinh `(symbol, timeframe, ts)` de luu nhieu khung thoi gian va nhieu loai tai san.
+- Index `symbol + timeframe + ts DESC` de doc nhanh 300-500 nen gan nhat cho chart va AI.
+- Cot `asset_category` de mo rong query theo nhom tai san trong tuong lai.
+- Bang `history_sync_state` de theo doi lan sync cuoi cho tung symbol/timeframe.
 
 ## Deploy Vercel
 
-App da duoc them:
-
-- Vercel Function: [api/sheets-cache.ts](D:/Projects/financial-analyzer/frontend/api/sheets-cache.ts)
-- Vercel Cron worker: [api/sync-history.ts](D:/Projects/financial-analyzer/frontend/api/sync-history.ts)
-- Rewrite config: [vercel.json](D:/Projects/financial-analyzer/frontend/vercel.json)
-
 Can dat cac Environment Variables trong Vercel:
 
-- `VITE_GOOGLE_SHEETS_ENABLED=true`
-- `GOOGLE_SHEETS_WEB_APP_URL=<web-app-url>`
-- `GOOGLE_SHEETS_SECRET=<app-secret>`
-- `CRON_SECRET=<random-secret>`
+- `TURSO_DATABASE_URL`
+- `TURSO_AUTH_TOKEN`
+- `CRON_SECRET`
 - `SYNC_SYMBOLS=BTCUSD,ETHUSD,XAUUSD,EURUSD,VCB,HPG`
 - `SYNC_TIMEFRAMES=15m,1h,4h,1D`
 
@@ -115,11 +65,13 @@ Neu dung Alpha Vantage cho fallback trong cron:
 
 - `ALPHA_VANTAGE_KEY=<your-key>`
 
-Ghi chu:
+Route quan trong:
 
-- Client production tren Vercel se doc/ghi sheet qua `/api/sheets-cache`, khong goi truc tiep Apps Script.
-- Cron mac dinh trong [vercel.json](D:/Projects/financial-analyzer/frontend/vercel.json) la `0 1 * * *` de tuong thich Hobby. Neu ban dung Pro, co the tang tan suat.
-- Ban co the goi tay worker bang `GET /api/sync-history?secret=<CRON_SECRET>`.
+- `GET /api/history-cache?symbol=BTCUSD&timeframe=1h&limit=500`
+- `POST /api/history-cache`
+- `GET /api/sync-history?secret=<CRON_SECRET>`
+
+Cron mac dinh trong [vercel.json](D:/Projects/financial-analyzer/vercel.json) la `0 1 * * *`.
 
 ## Build
 

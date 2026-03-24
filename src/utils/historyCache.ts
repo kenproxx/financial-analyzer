@@ -1,5 +1,4 @@
 import type { MarketSymbol, OHLCV, SupportedTimeframe } from '../types/market'
-import { APP_ENV } from './env'
 
 interface HistoryResponse {
   ok?: boolean
@@ -8,32 +7,20 @@ interface HistoryResponse {
 }
 
 const writeTimestamps = new Map<string, number>()
-const GOOGLE_SHEETS_PROXY_PATH = '/api/sheets-cache'
-let sheetCacheDisabledReason = ''
+const HISTORY_CACHE_PATH = '/api/history-cache'
+let cacheDisabledReason = ''
 
 function cacheKey(symbolId: string, timeframe: SupportedTimeframe) {
   return `${symbolId}:${timeframe}`
 }
 
-function isLocalDev() {
-  return typeof window !== 'undefined' && ['127.0.0.1', 'localhost'].includes(window.location.hostname)
-}
-
 function isEnabled() {
-  return (
-    !sheetCacheDisabledReason &&
-    APP_ENV.googleSheetsEnabled &&
-    (!isLocalDev() || Boolean(APP_ENV.googleSheetsWebAppUrl))
-  )
+  return !cacheDisabledReason
 }
 
-function getSheetsRequestUrl() {
-  return GOOGLE_SHEETS_PROXY_PATH
-}
-
-function disableSheetCache(reason: string) {
-  if (!sheetCacheDisabledReason) {
-    sheetCacheDisabledReason = reason
+function disableHistoryCache(reason: string) {
+  if (!cacheDisabledReason) {
+    cacheDisabledReason = reason
     console.warn(reason)
   }
 }
@@ -41,27 +28,18 @@ function disableSheetCache(reason: string) {
 async function readJsonResponse<T>(response: Response, operation: 'read' | 'write') {
   const contentType = response.headers.get('content-type') || ''
 
-  if (
-    response.status === 401 ||
-    response.status === 403 ||
-    response.url.includes('accounts.google.com') ||
-    (!response.ok && contentType.includes('text/html'))
-  ) {
-    disableSheetCache(
-      'Google Sheets cache disabled: Apps Script Web App is not publicly accessible. Redeploy as Web app with access set to Anyone.',
-    )
-    throw new Error(`Google Sheets cache ${operation} unauthorized`)
+  if (response.status === 404 || response.status === 503) {
+    disableHistoryCache('History cache disabled: Turso cache API is unavailable or not configured.')
+    throw new Error(`History cache ${operation} unavailable (${response.status})`)
   }
 
   if (!response.ok) {
-    throw new Error(`Google Sheets cache ${operation} failed (${response.status})`)
+    throw new Error(`History cache ${operation} failed (${response.status})`)
   }
 
   if (!contentType.includes('application/json')) {
-    disableSheetCache(
-      'Google Sheets cache disabled: Apps Script Web App returned non-JSON content. Check the Web App URL and deployment access.',
-    )
-    throw new Error(`Google Sheets cache ${operation} returned invalid content`)
+    disableHistoryCache('History cache disabled: API returned non-JSON content.')
+    throw new Error(`History cache ${operation} returned invalid content`)
   }
 
   return (await response.json()) as T
@@ -94,19 +72,15 @@ function normalizeCandles(input: unknown) {
     .sort((a, b) => a.time - b.time)
 }
 
-export async function readSheetHistory(symbol: MarketSymbol, timeframe: SupportedTimeframe, limit = 500) {
+export async function readHistoryCache(symbol: MarketSymbol, timeframe: SupportedTimeframe, limit = 500) {
   if (!isEnabled()) {
     return []
   }
 
-  const url = new URL(getSheetsRequestUrl(), typeof window !== 'undefined' ? window.location.origin : undefined)
-  url.searchParams.set('action', 'history')
+  const url = new URL(HISTORY_CACHE_PATH, window.location.origin)
   url.searchParams.set('symbol', symbol.id)
   url.searchParams.set('timeframe', timeframe)
   url.searchParams.set('limit', String(limit))
-  if (APP_ENV.googleSheetsSecret) {
-    url.searchParams.set('secret', APP_ENV.googleSheetsSecret)
-  }
 
   const response = await fetch(url.toString(), {
     method: 'GET',
@@ -116,13 +90,18 @@ export async function readSheetHistory(symbol: MarketSymbol, timeframe: Supporte
 
   const payload = await readJsonResponse<HistoryResponse>(response, 'read')
   if (payload.ok === false) {
-    throw new Error(payload.error || 'Google Sheets cache read failed')
+    throw new Error(payload.error || 'History cache read failed')
   }
 
   return normalizeCandles(payload.candles).slice(-limit)
 }
 
-export async function writeSheetHistory(symbol: MarketSymbol, timeframe: SupportedTimeframe, candles: OHLCV[]) {
+export async function writeHistoryCache(
+  symbol: MarketSymbol,
+  timeframe: SupportedTimeframe,
+  candles: OHLCV[],
+  options: { source?: string } = {},
+) {
   if (!isEnabled() || !candles.length) {
     return
   }
@@ -135,23 +114,23 @@ export async function writeSheetHistory(symbol: MarketSymbol, timeframe: Support
 
   writeTimestamps.set(key, Date.now())
 
-  const response = await fetch(getSheetsRequestUrl(), {
+  const response = await fetch(HISTORY_CACHE_PATH, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
     },
     body: JSON.stringify({
-      action: 'upsertHistory',
-      secret: APP_ENV.googleSheetsSecret || undefined,
       symbol: symbol.id,
       timeframe,
       candles: candles.slice(-500),
+      assetCategory: symbol.category,
+      source: options.source,
     }),
   })
 
   const payload = await readJsonResponse<{ ok?: boolean; error?: string }>(response, 'write')
   if (payload.ok === false) {
-    throw new Error(payload.error || 'Google Sheets cache write failed')
+    throw new Error(payload.error || 'History cache write failed')
   }
 }
