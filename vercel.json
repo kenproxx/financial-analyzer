@@ -1,0 +1,26 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/yahoo/:path*",
+      "destination": "https://query1.finance.yahoo.com/:path*"
+    },
+    {
+      "source": "/api/binance/:path*",
+      "destination": "https://api.binance.com/:path*"
+    },
+    {
+      "source": "/api/alpha",
+      "destination": "https://www.alphavantage.co/"
+    },
+    {
+      "source": "/api/openai/:path*",
+      "destination": "https://api.openai.com/:path*"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/sync-history",
+      "schedule": "0 1 * * *"
+    }
+  ]
+}

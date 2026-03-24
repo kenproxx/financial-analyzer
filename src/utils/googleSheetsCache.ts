@@ -15,16 +15,20 @@ function cacheKey(symbolId: string, timeframe: SupportedTimeframe) {
   return `${symbolId}:${timeframe}`
 }
 
+function isLocalDev() {
+  return typeof window !== 'undefined' && ['127.0.0.1', 'localhost'].includes(window.location.hostname)
+}
+
 function isEnabled() {
-  return !sheetCacheDisabledReason && APP_ENV.googleSheetsEnabled && Boolean(APP_ENV.googleSheetsWebAppUrl)
+  return (
+    !sheetCacheDisabledReason &&
+    APP_ENV.googleSheetsEnabled &&
+    (!isLocalDev() || Boolean(APP_ENV.googleSheetsWebAppUrl))
+  )
 }
 
 function getSheetsRequestUrl() {
-  if (typeof window !== 'undefined' && ['127.0.0.1', 'localhost'].includes(window.location.hostname)) {
-    return GOOGLE_SHEETS_PROXY_PATH
-  }
-
-  return APP_ENV.googleSheetsWebAppUrl
+  return GOOGLE_SHEETS_PROXY_PATH
 }
 
 function disableSheetCache(reason: string) {
