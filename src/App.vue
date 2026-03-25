@@ -291,7 +291,7 @@ onBeforeUnmount(() => {
       </header>
 
       <div class="grid gap-6 xl:grid-cols-[360px,minmax(0,1fr),400px]">
-        <div class="space-y-6">
+        <div class="min-w-0 space-y-6">
           <MarketList
             :watchlist-ids="marketStore.watchlistIds"
             :current-symbol-id="marketStore.currentSymbolId"
@@ -355,7 +355,7 @@ onBeforeUnmount(() => {
           </section>
         </div>
 
-        <main class="space-y-6">
+        <main class="min-w-0 space-y-6">
           <section class="rounded-[2rem] border border-slate-800 bg-slate-950/60 p-4 shadow-2xl shadow-slate-950/30">
             <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -370,7 +370,7 @@ onBeforeUnmount(() => {
           </section>
 
           <div
-            class="grid gap-6"
+            class="min-w-0 grid gap-6"
             :class="
               marketStore.settings.multiChartCount === 1
                 ? 'grid-cols-1'
@@ -382,6 +382,7 @@ onBeforeUnmount(() => {
             <PriceChart
               v-for="chartSymbol in marketStore.chartSymbols"
               :key="`${chartSymbol.id}:${marketStore.selectedTimeframe}`"
+              class="min-w-0"
               :symbol="chartSymbol"
               :timeframe="marketStore.selectedTimeframe"
               :candles="marketStore.candlesFor(chartSymbol.id, marketStore.selectedTimeframe)"
@@ -392,6 +393,7 @@ onBeforeUnmount(() => {
           </div>
 
           <AIInsightPanel
+            class="min-w-0"
             :symbol="marketStore.currentSymbol"
             :timeframe="marketStore.selectedTimeframe"
             :insight="currentInsight"
@@ -399,6 +401,7 @@ onBeforeUnmount(() => {
           />
 
           <SignalPanel
+            class="min-w-0"
             :analysis="currentAnalysis"
             :watchlist="marketStore.watchlist"
             :matrix="indicatorStore.timeframeMatrix"
@@ -407,8 +410,9 @@ onBeforeUnmount(() => {
           />
         </main>
 
-        <div class="space-y-6">
+        <div class="min-w-0 space-y-6">
           <IndicatorPanel
+            class="min-w-0"
             :enabled-indicators="indicatorStore.enabledIndicators"
             :enabled-groups="indicatorStore.enabledGroups"
             @toggle-indicator="indicatorStore.toggleIndicator"

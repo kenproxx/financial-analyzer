@@ -121,8 +121,10 @@ export interface TimeframeSignalCell {
   symbol: string
   timeframe: SupportedTimeframe
   loading: boolean
+  hasData: boolean
   strength: SignalStrength
   updatedAt?: number
+  error?: string
 }
 
 export interface AnalysisResult {

@@ -1,7 +1,7 @@
 import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { INDICATORS, PRESETS, SIGNAL_MATRIX_TIMEFRAMES, STORAGE_KEYS } from '../constants/markets'
-import type { IndicatorGroup, SupportedTimeframe, TimeframeSignalCell } from '../types/market'
+import type { AnalysisResult, IndicatorGroup, SupportedTimeframe, TimeframeSignalCell } from '../types/market'
 import { useTechnicalAnalysis } from '../composables/useTechnicalAnalysis'
 import { buildSignals } from '../composables/useSignalEngine'
 import { buildCacheKey, marketById } from '../utils/marketData'
@@ -34,12 +34,15 @@ function createGroupState(enabled: boolean): GroupState {
   }
 }
 
+const MATRIX_CONCURRENCY = 8
+type StoredAnalysis = AnalysisResult
+
 export const useIndicatorStore = defineStore('indicator', () => {
   const { calculate } = useTechnicalAnalysis()
   const hasMigratedDefaults = readLocalStorage(STORAGE_KEYS.indicatorDefaultsMigrated, false)
   const enabledIndicators = ref<string[]>(readLocalStorage(STORAGE_KEYS.enabledIndicators, DEFAULT_ENABLED))
   const enabledGroups = ref<GroupState>(readLocalStorage(STORAGE_KEYS.enabledGroups, DEFAULT_GROUPS))
-  const analysisByKey = ref<Record<string, ReturnType<typeof buildSignals> & Record<string, unknown>>>({})
+  const analysisByKey = ref<Record<string, StoredAnalysis>>({})
   const loadingByKey = ref<Record<string, boolean>>({})
   const errorByKey = ref<Record<string, string>>({})
   const timeframeMatrix = ref<Record<string, TimeframeSignalCell>>({})
@@ -57,18 +60,39 @@ export const useIndicatorStore = defineStore('indicator', () => {
     return new Promise((resolve) => window.setTimeout(resolve, ms))
   }
 
+  async function runWithConcurrency<T>(items: T[], limit: number, worker: (item: T) => Promise<void>) {
+    const queue = [...items]
+    const runners = Array.from({ length: Math.min(limit, queue.length) }, async () => {
+      while (queue.length) {
+        const item = queue.shift()
+        if (!item) {
+          return
+        }
+
+        await worker(item)
+      }
+    })
+
+    await Promise.all(runners)
+  }
+
   const activeIndicators = computed(() =>
     INDICATORS.filter((item) => enabledGroups.value[item.group] && enabledIndicators.value.includes(item.key)),
   )
 
-  async function compute(symbolId: string, timeframe: SupportedTimeframe, force = false) {
+  function indicatorSignature() {
+    return activeIndicators.value.map((item) => item.key).sort().join('|')
+  }
+
+  async function compute(symbolId: string, timeframe: SupportedTimeframe, force = false): Promise<StoredAnalysis | null> {
     const marketStore = useMarketStore()
     const candles = marketStore.candlesFor(symbolId, timeframe)
     const key = buildCacheKey(symbolId, timeframe)
     const lastClosedTime = candles.at(-1)?.time
-    const cached = analysisByKey.value[key] as (Record<string, unknown> & { lastClosedTime?: number }) | undefined
+    const cached = analysisByKey.value[key]
+    const currentSignature = indicatorSignature()
 
-    if (!force && cached?.lastClosedTime === lastClosedTime) {
+    if (!force && cached?.lastClosedTime === lastClosedTime && cached.series.__indicatorSignature === currentSignature) {
       return cached
     }
 
@@ -81,9 +105,13 @@ export const useIndicatorStore = defineStore('indicator', () => {
 
     try {
       const workerResult = await calculate(symbolId, timeframe, candles, lastClosedTime)
-      const { signals, aggregate } = buildSignals(workerResult as never, activeIndicators.value.map((item) => item.key))
-      const result = {
+      const { signals, aggregate } = buildSignals(workerResult, activeIndicators.value.map((item) => item.key))
+      const result: StoredAnalysis = {
         ...workerResult,
+        series: {
+          ...workerResult.series,
+          __indicatorSignature: currentSignature,
+        },
         signals,
         aggregate,
       }
@@ -100,13 +128,11 @@ export const useIndicatorStore = defineStore('indicator', () => {
   async function ensure(symbolId: string, timeframe: SupportedTimeframe, forceHistory = false) {
     const marketStore = useMarketStore()
     await marketStore.loadHistory(symbolId, timeframe, forceHistory)
-    return compute(symbolId, timeframe)
+    return compute(symbolId, timeframe, forceHistory)
   }
 
-  function analysisFor(symbolId: string, timeframe: SupportedTimeframe) {
-    return analysisByKey.value[buildCacheKey(symbolId, timeframe)] as
-      | (Record<string, unknown> & { signals: unknown[]; aggregate: unknown })
-      | undefined
+  function analysisFor(symbolId: string, timeframe: SupportedTimeframe): StoredAnalysis | undefined {
+    return analysisByKey.value[buildCacheKey(symbolId, timeframe)]
   }
 
   function toggleIndicator(key: string) {
@@ -132,7 +158,6 @@ export const useIndicatorStore = defineStore('indicator', () => {
   }
 
   async function refreshMatrix(symbolIds: string[], timeframes = SIGNAL_MATRIX_TIMEFRAMES, forceHistory = false) {
-    const marketStore = useMarketStore()
     if (matrixRefreshing.value) {
       return
     }
@@ -140,46 +165,53 @@ export const useIndicatorStore = defineStore('indicator', () => {
     matrixRefreshing.value = true
 
     try {
-      for (const symbolId of symbolIds) {
+      const jobs = symbolIds.flatMap((symbolId) => {
         const symbol = marketById(symbolId)
-        if (!symbol) {
-          continue
-        }
+        return symbol ? timeframes.map((timeframe) => ({ symbolId, timeframe })) : []
+      })
 
-        for (const timeframe of timeframes) {
-          const key = `${symbolId}:${timeframe}`
+      for (const { symbolId, timeframe } of jobs) {
+        const key = `${symbolId}:${timeframe}`
+        const previous = timeframeMatrix.value[key]
+        timeframeMatrix.value[key] = {
+          symbol: symbolId,
+          timeframe,
+          loading: true,
+          hasData: previous?.hasData ?? false,
+          strength: previous?.strength ?? 'neutral',
+          updatedAt: previous?.updatedAt,
+          error: '',
+        }
+      }
+
+      await runWithConcurrency(jobs, MATRIX_CONCURRENCY, async ({ symbolId, timeframe }) => {
+        const key = `${symbolId}:${timeframe}`
+
+        try {
+          const result = await ensure(symbolId, timeframe, forceHistory)
           timeframeMatrix.value[key] = {
             symbol: symbolId,
             timeframe,
-            loading: true,
-            strength: timeframeMatrix.value[key]?.strength ?? 'neutral',
-            updatedAt: timeframeMatrix.value[key]?.updatedAt,
+            loading: false,
+            hasData: Boolean(result),
+            strength: result?.aggregate?.conclusion ?? 'neutral',
+            updatedAt: Date.now(),
+            error: '',
           }
-
-          try {
-            const candles = await marketStore.loadHistory(symbolId, timeframe, forceHistory)
-            const workerResult = await calculate(symbolId, timeframe, candles, candles.at(-1)?.time)
-            const { aggregate } = buildSignals(workerResult as never, activeIndicators.value.map((item) => item.key))
-            timeframeMatrix.value[key] = {
-              symbol: symbolId,
-              timeframe,
-              loading: false,
-              strength: aggregate.conclusion,
-              updatedAt: Date.now(),
-            }
-          } catch {
-            timeframeMatrix.value[key] = {
-              symbol: symbolId,
-              timeframe,
-              loading: false,
-              strength: 'neutral',
-              updatedAt: Date.now(),
-            }
+        } catch (error) {
+          timeframeMatrix.value[key] = {
+            symbol: symbolId,
+            timeframe,
+            loading: false,
+            hasData: false,
+            strength: 'neutral',
+            updatedAt: Date.now(),
+            error: error instanceof Error ? error.message : 'Matrix refresh failed',
           }
-
-          await delay(250)
         }
-      }
+
+        await delay(75)
+      })
     } finally {
       matrixRefreshing.value = false
     }

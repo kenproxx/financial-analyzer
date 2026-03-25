@@ -110,6 +110,15 @@ const sellWidth = computed(() => `${(props.analysis?.aggregate.sellRatio ?? 0) *
               <td class="px-3 py-2 font-medium text-slate-100">{{ row.id }}</td>
               <td v-for="timeframe in timeframes" :key="`${row.id}:${timeframe}`" class="px-2 py-2 text-center">
                 <button
+                  v-if="!matrix[`${row.id}:${timeframe}`]?.loading && !matrix[`${row.id}:${timeframe}`]?.hasData"
+                  class="min-w-[46px] rounded-xl bg-slate-900 px-2 py-1 text-xs font-semibold text-slate-500"
+                  :title="matrix[`${row.id}:${timeframe}`]?.error || 'Chưa có dữ liệu'"
+                  @click="emit('openCell', row.id, timeframe)"
+                >
+                  N/A
+                </button>
+                <button
+                  v-else
                   class="min-w-[46px] rounded-xl px-2 py-1 text-xs font-semibold"
                   :class="
                     matrix[`${row.id}:${timeframe}`]?.loading
@@ -124,9 +133,20 @@ const sellWidth = computed(() => `${(props.analysis?.aggregate.sellRatio ?? 0) *
                               ? 'bg-rose-500/25 text-rose-100'
                               : 'bg-slate-800 text-slate-300'
                   "
+                  :title="
+                    matrix[`${row.id}:${timeframe}`]?.loading
+                      ? 'Đang tính tín hiệu'
+                      : signalLabel(matrix[`${row.id}:${timeframe}`]?.strength ?? 'neutral')
+                  "
                   @click="emit('openCell', row.id, timeframe)"
                 >
-                  {{ matrix[`${row.id}:${timeframe}`]?.loading ? '...' : signalGlyph(matrix[`${row.id}:${timeframe}`]?.strength ?? 'neutral') }}
+                  {{
+                    matrix[`${row.id}:${timeframe}`]?.loading
+                      ? '...'
+                      : matrix[`${row.id}:${timeframe}`]?.strength === 'neutral'
+                        ? '•'
+                        : signalGlyph(matrix[`${row.id}:${timeframe}`]?.strength ?? 'neutral')
+                  }}
                 </button>
               </td>
             </tr>

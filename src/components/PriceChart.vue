@@ -91,7 +91,6 @@ function drawOverlays() {
     ['ema21', '#a855f7'],
     ['vwap', '#e879f9'],
     ['vwma20', '#38bdf8'],
-    ['supertrend', '#22c55e'],
   ]
 
   for (const [key, color] of overlayLines) {
@@ -140,6 +139,16 @@ function drawOverlays() {
     base?.setData(props.candles.flatMap((candle, index) => source[index]?.base == null ? [] : [{ time: time(candle.time), value: source[index].base }]))
     spanA?.setData(props.candles.flatMap((candle, index) => source[index]?.spanA == null ? [] : [{ time: time(candle.time), value: source[index].spanA }]))
     spanB?.setData(props.candles.flatMap((candle, index) => source[index]?.spanB == null ? [] : [{ time: time(candle.time), value: source[index].spanB }]))
+  }
+
+  if (props.enabledIndicators.includes('supertrend') && Array.isArray(props.analysis.series.supertrend)) {
+    const supertrend = createOverlay('supertrend', '#22c55e', 2)
+    supertrend?.setData(
+      props.candles.flatMap((candle, index) => {
+        const row = props.analysis?.series?.supertrend?.[index]
+        return typeof row?.trend === 'number' ? [{ time: time(candle.time), value: row.trend }] : []
+      }),
+    )
   }
 }
 

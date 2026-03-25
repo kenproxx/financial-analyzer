@@ -11,6 +11,17 @@ interface PendingTask {
 const worker = new Worker(new URL('../workers/indicatorWorker.ts', import.meta.url), { type: 'module' })
 const pending = new Map<string, PendingTask>()
 
+function serializeCandles(candles: OHLCV[]): OHLCV[] {
+  return candles.map((candle) => ({
+    time: candle.time,
+    open: candle.open,
+    high: candle.high,
+    low: candle.low,
+    close: candle.close,
+    volume: candle.volume,
+  }))
+}
+
 worker.onmessage = (event: MessageEvent<{ id: string; ok: boolean; result?: WorkerResult; error?: string }>) => {
   const task = pending.get(event.data.id)
   if (!task) {
@@ -26,6 +37,12 @@ worker.onmessage = (event: MessageEvent<{ id: string; ok: boolean; result?: Work
   task.reject(new Error(event.data.error ?? 'Worker error'))
 }
 
+worker.onerror = (event) => {
+  const error = new Error(event.message || 'Worker failed to initialize')
+  pending.forEach((task) => task.reject(error))
+  pending.clear()
+}
+
 export function useTechnicalAnalysis() {
   async function calculate(symbol: string, timeframe: SupportedTimeframe, candles: OHLCV[], lastClosedTime?: number) {
     return new Promise<WorkerResult>((resolve, reject) => {
@@ -35,7 +52,7 @@ export function useTechnicalAnalysis() {
         id,
         symbol,
         timeframe,
-        candles,
+        candles: serializeCandles(candles),
         lastClosedTime,
       })
     })
