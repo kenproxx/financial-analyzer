@@ -1,38 +1,61 @@
 import { createClient, type Client } from '@libsql/client'
 
-let client: Client | null = null
-let schemaReady: Promise<void> | null = null
+declare global {
+  var __tursoClient__: Client | undefined
+  var __tursoSchemaReady__: Promise<void> | undefined
+}
 
-function getRequiredEnv(name: 'TURSO_DATABASE_URL' | 'TURSO_AUTH_TOKEN') {
-  const value = process.env[name]?.trim()
-  if (!value) {
-    throw new Error(`Missing server env ${name}`)
+type TursoConfig = {
+  url: string
+  authToken?: string
+}
+
+function readEnv(name: 'TURSO_DATABASE_URL' | 'TURSO_AUTH_TOKEN') {
+  return process.env[name]?.trim()
+}
+
+function getTursoConfig(): TursoConfig {
+  const url = readEnv('TURSO_DATABASE_URL')
+  if (!url) {
+    throw new Error('Missing server env TURSO_DATABASE_URL')
   }
-  return value
+
+  const authToken = readEnv('TURSO_AUTH_TOKEN')
+  if (!authToken && !url.startsWith('file:')) {
+    throw new Error('Missing server env TURSO_AUTH_TOKEN')
+  }
+
+  return { url, authToken }
 }
 
 export function isTursoConfigured() {
-  return Boolean(process.env.TURSO_DATABASE_URL?.trim() && process.env.TURSO_AUTH_TOKEN?.trim())
+  const url = readEnv('TURSO_DATABASE_URL')
+  if (!url) {
+    return false
+  }
+
+  return url.startsWith('file:') || Boolean(readEnv('TURSO_AUTH_TOKEN'))
 }
 
 export function getTursoClient() {
-  if (!client) {
-    client = createClient({
-      url: getRequiredEnv('TURSO_DATABASE_URL'),
-      authToken: getRequiredEnv('TURSO_AUTH_TOKEN'),
+  if (!globalThis.__tursoClient__) {
+    const config = getTursoConfig()
+    globalThis.__tursoClient__ = createClient({
+      url: config.url,
+      authToken: config.authToken,
       concurrency: 8,
     })
   }
 
-  return client
+  return globalThis.__tursoClient__
 }
 
 export async function ensureTursoSchema() {
-  if (schemaReady) {
-    return schemaReady
+  if (globalThis.__tursoSchemaReady__) {
+    return globalThis.__tursoSchemaReady__
   }
 
-  schemaReady = (async () => {
+  globalThis.__tursoSchemaReady__ = (async () => {
     const db = getTursoClient()
     await db.batch(
       [
@@ -76,9 +99,9 @@ export async function ensureTursoSchema() {
       'write',
     )
   })().catch((error) => {
-    schemaReady = null
+    globalThis.__tursoSchemaReady__ = undefined
     throw error
   })
 
-  return schemaReady
+  return globalThis.__tursoSchemaReady__
 }

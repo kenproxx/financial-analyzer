@@ -37,6 +37,54 @@ Gia tri trong `.env` la mac dinh ban dau. Neu site da co `localStorage`, setting
 
 App da bo Google Sheets va chuyen sang Turso de luu cache lich su OHLCV.
 
+Cach dung dung cho repo nay khi deploy tren Vercel:
+
+```ts
+// api/_lib/turso.ts
+import { createClient } from '@libsql/client'
+
+let client: ReturnType<typeof createClient> | undefined
+let schemaReady: Promise<void> | undefined
+
+function getDb() {
+  if (!client) {
+    client = createClient({
+      url: process.env.TURSO_DATABASE_URL!,
+      authToken: process.env.TURSO_AUTH_TOKEN!,
+    })
+  }
+
+  return client
+}
+
+export async function ensureSchema() {
+  if (!schemaReady) {
+    schemaReady = getDb().batch(
+      [
+        {
+          sql: `CREATE TABLE IF NOT EXISTS candles (
+            symbol TEXT NOT NULL,
+            timeframe TEXT NOT NULL,
+            ts INTEGER NOT NULL,
+            open REAL NOT NULL,
+            high REAL NOT NULL,
+            low REAL NOT NULL,
+            close REAL NOT NULL,
+            volume REAL NOT NULL,
+            PRIMARY KEY (symbol, timeframe, ts)
+          ) WITHOUT ROWID`,
+        },
+      ],
+      'write',
+    )
+  }
+
+  return schemaReady
+}
+```
+
+Khong nen tao table truc tiep trong tung request theo kieu `CREATE TABLE todos ...` vi request thu hai tro di se loi neu table da ton tai, va schema init khong nen nam trong frontend.
+
 Thanh phan chinh:
 
 - Client cache helper: [src/utils/historyCache.ts](D:/Projects/financial-analyzer/src/utils/historyCache.ts)
