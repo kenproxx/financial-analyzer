@@ -1,5 +1,5 @@
-import { fetchHistoricalCandles, parseSupportedTimeframes, parseSyncSymbols } from './_lib/market-data'
-import { isHistoryCacheConfigured, writeHistoryCache } from './_lib/history-cache'
+import { fetchHistoricalCandles, parseSupportedTimeframes, parseSyncSymbols } from './_lib/market-data.js'
+import { isHistoryCacheConfigured, writeHistoryCache } from './_lib/history-cache.js'
 
 function sendJson(res: any, status: number, payload: unknown) {
   res.statusCode = status

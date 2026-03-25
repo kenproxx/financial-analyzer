@@ -1,4 +1,4 @@
-import { DEFAULT_SYNC_TIMEFRAMES, DEFAULT_SYNC_SYMBOLS, marketById, TIMEFRAME_CONFIG, type MarketSymbol, type SupportedTimeframe } from './market-config'
+import { DEFAULT_SYNC_TIMEFRAMES, DEFAULT_SYNC_SYMBOLS, marketById, TIMEFRAME_CONFIG, type MarketSymbol, type SupportedTimeframe } from './market-config.js'
 
 export interface ServerOHLCV {
   time: number

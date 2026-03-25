@@ -1,5 +1,5 @@
-import type { ServerOHLCV } from './market-data'
-import { ensureTursoSchema, getTursoClient, isTursoConfigured } from './turso'
+import type { ServerOHLCV } from './market-data.js'
+import { ensureTursoSchema, getTursoClient, isTursoConfigured } from './turso.js'
 
 const UPSERT_CHUNK_SIZE = 100
 

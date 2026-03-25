@@ -1,4 +1,4 @@
-import { isHistoryCacheConfigured, readHistoryCache, writeHistoryCache } from './_lib/history-cache'
+import { isHistoryCacheConfigured, readHistoryCache, writeHistoryCache } from './_lib/history-cache.js'
 
 function sendJson(res: any, status: number, payload: unknown) {
   res.statusCode = status
