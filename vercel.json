@@ -11,10 +11,6 @@
     {
       "source": "/api/alpha",
       "destination": "https://www.alphavantage.co/"
-    },
-    {
-      "source": "/api/openai/:path*",
-      "destination": "https://api.openai.com/:path*"
     }
   ],
   "crons": [

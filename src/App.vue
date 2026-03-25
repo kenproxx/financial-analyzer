@@ -33,10 +33,6 @@ const historyLoading = computed(
 )
 
 function maybeAnalyzeCurrentView() {
-  if (!marketStore.settings.openAiKey) {
-    return
-  }
-
   const symbolId = marketStore.currentSymbolId
   const timeframe = marketStore.selectedTimeframe
   const insight = aiStore.insights[`${symbolId}:${timeframe}`]

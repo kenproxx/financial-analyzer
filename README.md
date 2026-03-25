@@ -18,11 +18,12 @@ Dev server mac dinh: `http://127.0.0.1:5173`
 ```env
 VITE_FINNHUB_KEY=
 VITE_ALPHA_VANTAGE_KEY=
-VITE_OPENAI_KEY=
 VITE_OPENAI_MODEL=gpt-4o
 VITE_THEME=dark
 VITE_MULTI_CHART_COUNT=2
 
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-4o
 TURSO_DATABASE_URL=
 TURSO_AUTH_TOKEN=
 
@@ -32,6 +33,21 @@ SYNC_TIMEFRAMES=15m,1h,4h,1D
 ```
 
 Gia tri trong `.env` la mac dinh ban dau. Neu site da co `localStorage`, settings da luu se override env.
+
+## OpenAI Proxy
+
+Khong nen rewrite `/api/openai/*` thang sang `https://api.openai.com/*` trong `vercel.json`, va cung khong nen dua OpenAI API key vao `VITE_*` env de frontend gui `Authorization` truc tiep tu browser.
+
+Repo nay da dung serverless route:
+
+- `POST /api/openai/v1/chat/completions`
+
+Route nay doc key tu:
+
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL` (optional fallback)
+
+Frontend chi goi endpoint noi bo cua app. Key khong xuat hien trong browser network payload.
 
 ## Turso History Cache
 
@@ -103,6 +119,8 @@ Schema toi uu cho workload hien tai:
 
 Can dat cac Environment Variables trong Vercel:
 
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL=gpt-4o`
 - `TURSO_DATABASE_URL`
 - `TURSO_AUTH_TOKEN`
 - `CRON_SECRET`

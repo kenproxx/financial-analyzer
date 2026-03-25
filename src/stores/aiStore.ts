@@ -30,18 +30,6 @@ export const useAiStore = defineStore('ai', () => {
       return inFlight
     }
 
-    if (!marketStore.settings.openAiKey) {
-      insights.value[key] = {
-        symbol: symbolId,
-        timeframe,
-        content: '',
-        createdAt: Date.now(),
-        loading: false,
-        error: 'Thieu OpenAI API key tu environment.',
-      }
-      return insights.value[key]
-    }
-
     insights.value[key] = {
       symbol: symbolId,
       timeframe,
@@ -71,7 +59,6 @@ export const useAiStore = defineStore('ai', () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${marketStore.settings.openAiKey}`,
         },
         body: JSON.stringify({
           model: marketStore.settings.openAiModel,
@@ -103,13 +90,25 @@ Tra loi dung 3 phan:
       })
 
       if (!response.ok || !response.body) {
+        const errorText = await response.text()
+        let errorMessage = `OpenAI request failed (${response.status})`
+
+        try {
+          const parsed = JSON.parse(errorText)
+          errorMessage = parsed.error?.message ?? parsed.message ?? errorMessage
+        } catch {
+          if (errorText.trim()) {
+            errorMessage = errorText.trim()
+          }
+        }
+
         insights.value[key] = {
           symbol: symbolId,
           timeframe,
           content: '',
           createdAt: Date.now(),
           loading: false,
-          error: `OpenAI request failed (${response.status})`,
+          error: errorMessage,
         }
         return insights.value[key]
       }
