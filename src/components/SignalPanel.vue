@@ -37,13 +37,13 @@ const sellWidth = computed(() => `${(props.analysis?.aggregate.sellRatio ?? 0) *
 <template>
   <section class="rounded-3xl border border-slate-800 bg-slate-950/70 p-4 shadow-2xl shadow-slate-950/30">
     <div class="mb-4">
-      <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Signal Engine</p>
-      <h2 class="font-display text-lg text-slate-100">Bảng tín hiệu MUA/BÁN</h2>
+      <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Tín hiệu giao dịch</p>
+      <h2 class="font-display text-lg text-slate-100">Bảng tín hiệu mua bán</h2>
     </div>
 
     <div class="mb-4 overflow-hidden rounded-2xl border border-slate-800">
       <div class="grid grid-cols-[1.3fr,1fr,110px] gap-3 bg-slate-900/80 px-3 py-2 text-xs uppercase tracking-[0.2em] text-slate-500">
-        <span>Indicator</span>
+        <span>Chỉ báo</span>
         <span>Giá trị</span>
         <span>Tín hiệu</span>
       </div>
@@ -65,18 +65,18 @@ const sellWidth = computed(() => `${(props.analysis?.aggregate.sellRatio ?? 0) *
                   : 'bg-slate-800 text-slate-300'
             "
           >
-            {{ signal.bias === 'buy' ? '🟢 MUA' : signal.bias === 'sell' ? '🔴 BÁN' : '🟡 TRUNG LẬP' }}
+            {{ signal.bias === 'buy' ? 'MUA' : signal.bias === 'sell' ? 'BÁN' : 'TRUNG LẬP' }}
           </span>
         </div>
       </div>
-      <div v-else class="px-3 py-8 text-center text-sm text-slate-500">Chưa có phân tích cho timeframe hiện tại.</div>
+      <div v-else class="px-3 py-8 text-center text-sm text-slate-500">Chưa có phân tích cho khung thời gian hiện tại.</div>
     </div>
 
     <div v-if="analysis" class="mb-6 rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
       <div class="mb-3 flex items-center justify-between">
         <p class="text-sm font-semibold text-slate-100">{{ signalLabel(analysis.aggregate.conclusion) }}</p>
         <p class="text-xs text-slate-400">
-          Buy {{ analysis.aggregate.buy }} / Sell {{ analysis.aggregate.sell }} / Neutral {{ analysis.aggregate.neutral }}
+          Mua {{ analysis.aggregate.buy }} / Bán {{ analysis.aggregate.sell }} / Trung lập {{ analysis.aggregate.neutral }}
         </p>
       </div>
       <div class="h-3 overflow-hidden rounded-full bg-slate-800">
@@ -86,14 +86,14 @@ const sellWidth = computed(() => `${(props.analysis?.aggregate.sellRatio ?? 0) *
         <div class="h-full bg-rose-500" :style="{ width: sellWidth }" />
       </div>
       <div class="mt-3 flex justify-between text-xs text-slate-500">
-        <span>Buy ratio {{ formatPercent((analysis.aggregate.buyRatio ?? 0) * 100) }}</span>
-        <span>Sell ratio {{ formatPercent((analysis.aggregate.sellRatio ?? 0) * 100) }}</span>
+        <span>Tỷ lệ mua {{ formatPercent((analysis.aggregate.buyRatio ?? 0) * 100) }}</span>
+        <span>Tỷ lệ bán {{ formatPercent((analysis.aggregate.sellRatio ?? 0) * 100) }}</span>
       </div>
     </div>
 
     <div>
       <div class="mb-3">
-        <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Multi-Timeframe</p>
+        <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Đa khung thời gian</p>
         <h3 class="font-display text-base text-slate-100">Ma trận tín hiệu</h3>
       </div>
 
@@ -101,7 +101,7 @@ const sellWidth = computed(() => `${(props.analysis?.aggregate.sellRatio ?? 0) *
         <table class="min-w-full text-sm">
           <thead class="bg-slate-900/80 text-xs uppercase tracking-[0.2em] text-slate-500">
             <tr>
-              <th class="px-3 py-2 text-left">Asset</th>
+              <th class="px-3 py-2 text-left">Tài sản</th>
               <th v-for="timeframe in timeframes" :key="timeframe" class="px-3 py-2 text-center">{{ timeframe }}</th>
             </tr>
           </thead>

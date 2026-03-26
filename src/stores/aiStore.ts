@@ -90,7 +90,7 @@ export const useAiStore = defineStore('ai', () => {
           content: '',
           createdAt: Date.now(),
           loading: false,
-          error: 'Chua du du lieu de phan tich AI.',
+          error: 'Chưa đủ dữ liệu để phân tích AI.',
         }
         return insights.value[key]
       }
@@ -108,22 +108,22 @@ export const useAiStore = defineStore('ai', () => {
           messages: [
             {
               role: 'system',
-              content: 'Ban la chuyen gia phan tich tai chinh. Tra loi ngan, ro, uu tien quyet dinh giao dich thuc dung.',
+              content: 'Bạn là chuyên gia phân tích tài chính. Trả lời ngắn, rõ và ưu tiên khuyến nghị giao dịch thực dụng.',
             },
             {
               role: 'user',
-              content: `Phan tich nhanh ${symbol.label} (${symbol.id}) khung ${timeframe}.
-Gia hien tai: ${quote.price}.
+              content: `Phân tích nhanh ${symbol.label} (${symbol.id}) trên khung ${timeframe}.
+Giá hiện tại: ${quote.price}.
 RSI(14): ${analysis.summaries.rsi?.current ?? '--'}.
 MACD: ${analysis.summaries.macd?.current ?? '--'}.
 ADX: ${analysis.summaries.adx?.current ?? '--'}.
-Ket luan xu huong: ${analysis.aggregate.conclusion}.
-Tin hieu tong hop: mua ${analysis.aggregate.buy}, ban ${analysis.aggregate.sell}, trung lap ${analysis.aggregate.neutral}.
+Kết luận xu hướng: ${analysis.aggregate.conclusion}.
+Tín hiệu tổng hợp: mua ${analysis.aggregate.buy}, bán ${analysis.aggregate.sell}, trung lập ${analysis.aggregate.neutral}.
 
-Tra loi dung 3 phan:
-1. Tom tat nhanh market context hom nay cho ${symbol.id} trong 2 cau.
-2. Nhan dinh technical chinh trong 3 bullet ngan.
-3. Khuyen nghi BUY/SELL/HOLD voi entry, stop loss, take profit.`,
+Trả lời đúng 3 phần:
+1. Tóm tắt nhanh bối cảnh thị trường hôm nay cho ${symbol.id} trong 2 câu.
+2. Nhận định kỹ thuật chính trong 3 gạch đầu dòng ngắn.
+3. Khuyến nghị BUY/SELL/HOLD với entry, stop loss, take profit.`,
             },
           ],
         }),
@@ -131,7 +131,7 @@ Tra loi dung 3 phan:
 
       if (!response.ok || !response.body) {
         const errorText = await response.text()
-        let errorMessage = `OpenAI request failed (${response.status})`
+        let errorMessage = `Yêu cầu OpenAI thất bại (${response.status})`
         let errorCode = ''
 
         try {
@@ -148,10 +148,10 @@ Tra loi dung 3 phan:
         if (response.status === 429) {
           if (errorCode === 'insufficient_quota') {
             retryAt = Date.now() + QUOTA_COOLDOWN_MS
-            errorMessage = `OpenAI API key da het quota. Tam khoa AI den ${formatRetryTime(retryAt)} de tranh goi lap.`
+            errorMessage = `API key OpenAI đã hết quota. Tạm khóa AI đến ${formatRetryTime(retryAt)} để tránh gọi lặp.`
           } else {
             retryAt = parseRetryAfter(response.headers.get('retry-after')) ?? Date.now() + RATE_LIMIT_COOLDOWN_MS
-            errorMessage = `OpenAI dang rate limit. Thu lai sau ${formatRetryTime(retryAt)}.`
+            errorMessage = `OpenAI đang giới hạn tần suất. Vui lòng thử lại sau ${formatRetryTime(retryAt)}.`
           }
 
           blockedUntil.value = retryAt

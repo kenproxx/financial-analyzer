@@ -161,11 +161,11 @@ function syncTooltip(param: any) {
   const data = param.seriesData.get(candleSeries)
   const volume = param.seriesData.get(volumeSeries)
   const labels = [
-    `O ${formatPrice(data?.open, props.symbol.precision)}`,
-    `H ${formatPrice(data?.high, props.symbol.precision)}`,
-    `L ${formatPrice(data?.low, props.symbol.precision)}`,
-    `C ${formatPrice(data?.close, props.symbol.precision)}`,
-    `V ${formatCompact(volume?.value)}`,
+    `Mở ${formatPrice(data?.open, props.symbol.precision)}`,
+    `Cao ${formatPrice(data?.high, props.symbol.precision)}`,
+    `Thấp ${formatPrice(data?.low, props.symbol.precision)}`,
+    `Đóng ${formatPrice(data?.close, props.symbol.precision)}`,
+    `KL ${formatCompact(volume?.value)}`,
   ]
   if (props.enabledIndicators.includes('rsi')) {
     labels.push(`RSI ${formatPrice(props.analysis?.summaries?.rsi?.current, 2)}`)
@@ -298,16 +298,16 @@ onBeforeUnmount(() => {
   <section ref="chartRoot" class="rounded-[2rem] border border-slate-800 bg-slate-950/70 p-4 shadow-2xl shadow-slate-950/30">
     <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
       <div>
-        <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Price Chart</p>
+        <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Biểu đồ giá</p>
         <h2 class="font-display text-lg text-slate-100">{{ symbol.label }}</h2>
         <p class="text-sm text-slate-500">{{ symbol.id }} · {{ timeframe }}</p>
       </div>
       <div class="flex gap-2">
         <button class="rounded-full border border-slate-700 px-3 py-1.5 text-xs text-slate-200" @click="enterFullscreen">
-          Full-screen
+          Toàn màn hình
         </button>
         <button class="rounded-full border border-slate-700 px-3 py-1.5 text-xs text-slate-200" @click="exportPng">
-          Export PNG
+          Xuất PNG
         </button>
       </div>
     </div>
@@ -329,7 +329,7 @@ onBeforeUnmount(() => {
 
     <div class="mt-4 grid gap-3 lg:grid-cols-4">
       <div class="rounded-2xl border border-slate-800 bg-slate-900/40 p-3">
-        <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Volume</p>
+        <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Khối lượng</p>
         <p class="mt-2 text-sm text-slate-200">{{ formatCompact(latestCandle?.volume) }}</p>
       </div>
       <div class="rounded-2xl border border-slate-800 bg-slate-900/40 p-3">

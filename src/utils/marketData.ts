@@ -117,7 +117,7 @@ async function fetchYahooHistory({ symbol, timeframe, limit }: HistoryRequest): 
 
 async function fetchBinanceHistory({ symbol, timeframe, limit }: HistoryRequest): Promise<OHLCV[]> {
   if (!symbol.binanceSymbol) {
-    throw new Error('Missing Binance symbol mapping')
+    throw new Error('Thiếu mã ánh xạ Binance')
   }
 
   const config = timeframeConfig(timeframe)
@@ -146,7 +146,7 @@ async function fetchBinanceHistory({ symbol, timeframe, limit }: HistoryRequest)
 
 async function fetchAlphaVantageHistory({ symbol, timeframe, settings, limit }: HistoryRequest): Promise<OHLCV[]> {
   if (!settings.alphaVantageKey) {
-    throw new Error('Missing Alpha Vantage key')
+    throw new Error('Thiếu khóa Alpha Vantage')
   }
 
   const config = timeframeConfig(timeframe)
@@ -210,7 +210,7 @@ export async function fetchHistoricalCandles(request: HistoryRequest) {
     }
   }
 
-  throw lastError instanceof Error ? lastError : new Error('Unable to fetch history')
+  throw lastError instanceof Error ? lastError : new Error('Không thể tải dữ liệu lịch sử')
 }
 
 async function fetchQuoteFromYahoo(symbol: MarketSymbol): Promise<PriceSnapshot> {
@@ -231,7 +231,7 @@ async function fetchQuoteFromYahoo(symbol: MarketSymbol): Promise<PriceSnapshot>
   const previous = candles.at(-2)
   const current = candles.at(-1)
   if (!current) {
-    throw new Error('Yahoo quote unavailable')
+    throw new Error('Không lấy được báo giá từ Yahoo')
   }
 
   return {
@@ -246,7 +246,7 @@ async function fetchQuoteFromYahoo(symbol: MarketSymbol): Promise<PriceSnapshot>
 
 async function fetchQuoteFromBinance(symbol: MarketSymbol): Promise<PriceSnapshot> {
   if (!symbol.binanceSymbol) {
-    throw new Error('Missing Binance symbol mapping')
+    throw new Error('Thiếu mã ánh xạ Binance')
   }
 
   const response = await axios.get(`${BINANCE_BASE}/api/v3/ticker/24hr`, {
@@ -305,7 +305,7 @@ export async function fetchLatestQuote(symbol: MarketSymbol, settings: HistoryRe
     }
   }
 
-  throw lastError instanceof Error ? lastError : new Error('Unable to fetch latest quote')
+  throw lastError instanceof Error ? lastError : new Error('Không thể lấy báo giá mới nhất')
 }
 
 export function convertBinanceKline(payload: Record<string, unknown>): OHLCV | null {

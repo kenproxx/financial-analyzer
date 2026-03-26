@@ -30,7 +30,7 @@ self.onmessage = (event: MessageEvent<IndicatorWorkerRequest>) => {
     self.postMessage({
       id: payload.id,
       ok: false,
-      error: error instanceof Error ? error.message : 'Indicator worker failed',
+      error: error instanceof Error ? error.message : 'Worker tính chỉ báo thất bại',
     })
   }
 }

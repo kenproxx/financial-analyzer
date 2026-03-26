@@ -162,7 +162,7 @@ export const useMarketStore = defineStore('market', () => {
       void writeHistoryCache(symbol, timeframe, candles).catch(() => undefined)
       return candles
     } catch (error) {
-      historyErrors.value[key] = error instanceof Error ? error.message : 'Failed to load history'
+      historyErrors.value[key] = error instanceof Error ? error.message : 'Không thể tải dữ liệu lịch sử'
       return []
     } finally {
       loadingHistory.value[key] = false
@@ -223,7 +223,7 @@ export const useMarketStore = defineStore('market', () => {
         const snapshot = await fetchLatestQuote(symbol, settings.value)
         upsertQuote(snapshot)
       } catch (error) {
-        errors.push(error instanceof Error ? error.message : `Failed quote for ${id}`)
+        errors.push(error instanceof Error ? error.message : `Không thể lấy báo giá cho ${id}`)
       }
     }
 
@@ -303,8 +303,8 @@ export const useMarketStore = defineStore('market', () => {
       }
 
       if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification(`Price alert ${snapshot.symbol}`, {
-          body: `${snapshot.symbol} chạm ${snapshot.price.toFixed(2)} (${alert.direction} ${alert.target.toFixed(2)})`,
+        new Notification(`Cảnh báo giá ${snapshot.symbol}`, {
+          body: `${snapshot.symbol} đã chạm ${snapshot.price.toFixed(2)} (${alert.direction} ${alert.target.toFixed(2)})`,
         })
       }
 

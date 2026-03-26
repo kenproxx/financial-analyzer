@@ -46,10 +46,10 @@ function quickAlert(symbolId: string, price: number) {
   <section class="rounded-3xl border border-slate-800 bg-slate-950/70 p-4 shadow-2xl shadow-slate-950/30 backdrop-blur">
     <div class="mb-4 flex items-center justify-between gap-3">
       <div>
-        <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Realtime Watchlist</p>
-        <h2 class="font-display text-lg text-slate-100">Tài sản theo dõi</h2>
+        <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Danh mục theo dõi</p>
+        <h2 class="font-display text-lg text-slate-100">Tài sản đang theo dõi</h2>
       </div>
-      <span class="rounded-full bg-slate-900 px-3 py-1 text-xs text-slate-400">{{ watchlistIds.length }} assets</span>
+      <span class="rounded-full bg-slate-900 px-3 py-1 text-xs text-slate-400">{{ watchlistIds.length }} tài sản</span>
     </div>
 
     <input
@@ -59,7 +59,7 @@ function quickAlert(symbolId: string, price: number) {
       type="text"
     />
 
-    <div class="grid gap-2">
+    <div class="grid max-h-[32rem] gap-2 overflow-auto pr-1">
       <div
         v-for="market in filteredMarkets"
         :key="market.id"
@@ -104,7 +104,7 @@ function quickAlert(symbolId: string, price: number) {
             class="mt-1 text-[11px] text-slate-500 hover:text-slate-300"
             @click.stop="quickAlert(market.id, quotes[market.id].price)"
           >
-            Alert @ price
+            Cảnh báo giá
           </button>
         </div>
       </div>

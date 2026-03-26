@@ -18,8 +18,6 @@ const marketStore = useMarketStore()
 const indicatorStore = useIndicatorStore()
 const aiStore = useAiStore()
 
-const alertTarget = ref('')
-const alertDirection = ref<'above' | 'below'>('above')
 const activeBinanceSymbolId = ref<string | null>(null)
 const activeBinanceTimeframe = ref<SupportedTimeframe | null>(null)
 const activeBinanceInterval = ref<string | null>(null)
@@ -133,16 +131,6 @@ function openMatrixCell(symbolId: string, timeframe: (typeof SIGNAL_MATRIX_TIMEF
   marketStore.setTimeframe(timeframe)
 }
 
-function addAlertFromForm() {
-  const target = Number(alertTarget.value)
-  if (!Number.isFinite(target) || target <= 0) {
-    return
-  }
-
-  marketStore.addAlert(marketStore.currentSymbolId, target, alertDirection.value)
-  alertTarget.value = ''
-}
-
 function refreshMatrix(forceHistory = false) {
   void indicatorStore.refreshMatrix(marketStore.watchlistIds.slice(0, 6), SIGNAL_MATRIX_TIMEFRAMES, forceHistory)
 }
@@ -251,15 +239,15 @@ onBeforeUnmount(() => {
       <header class="mb-6 flex flex-wrap items-start justify-between gap-4 rounded-[2rem] border border-slate-800 bg-slate-950/60 p-5 shadow-2xl shadow-slate-950/40 backdrop-blur">
         <div>
           <p class="text-xs uppercase tracking-[0.4em] text-emerald-300/70">Financial Analyzer</p>
-          <h1 class="font-display text-3xl text-slate-50 lg:text-4xl">Realtime technical dashboard cho crypto, forex, commodities, index và cổ phiếu VN</h1>
+          <h1 class="font-display text-3xl text-slate-50 lg:text-4xl">Bảng điều khiển phân tích kỹ thuật thời gian thực cho crypto, forex, vàng, chỉ số và cổ phiếu Việt Nam</h1>
           <p class="mt-2 max-w-4xl text-sm text-slate-400">
-            Live quotes, multi-source fallback, technical analysis bằng Web Worker, signal matrix nhiều khung giờ và AI market insight.
+            Theo dõi giá trực tiếp, tự động chuyển nguồn dữ liệu dự phòng, phân tích kỹ thuật bằng Web Worker, ma trận tín hiệu đa khung thời gian và nhận định thị trường bằng AI.
           </p>
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
           <button class="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200" @click="marketStore.toggleTheme()">
-            {{ marketStore.settings.theme === 'dark' ? 'Light mode' : 'Dark mode' }}
+            {{ marketStore.settings.theme === 'dark' ? 'Chế độ sáng' : 'Chế độ tối' }}
           </button>
           <button
             v-for="count in [1, 2, 4]"
@@ -272,7 +260,7 @@ onBeforeUnmount(() => {
             "
             @click="marketStore.setMultiChartCount(count as 1 | 2 | 4)"
           >
-            {{ count }} chart
+            {{ count }} biểu đồ
           </button>
         </div>
       </header>
@@ -287,70 +275,17 @@ onBeforeUnmount(() => {
             @toggle-watchlist="marketStore.toggleWatchlist"
             @add-alert="marketStore.addAlert"
           />
-
-          <section class="rounded-3xl border border-slate-800 bg-slate-950/70 p-4 shadow-2xl shadow-slate-950/30">
-            <div class="mb-4">
-              <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Settings</p>
-              <h2 class="font-display text-lg text-slate-100">Environment & alerts</h2>
-            </div>
-
-            <div class="grid gap-3">
-              <div class="rounded-2xl border border-slate-800 bg-slate-900/40 p-4 text-sm text-slate-300">
-                <p class="text-slate-100">API keys được nạp hoàn toàn từ biến môi trường.</p>
-                <p class="mt-1 text-slate-500">Finnhub, Alpha Vantage và OpenAI không còn chỉnh trực tiếp trên UI.</p>
-              </div>
-              <div class="rounded-2xl border border-slate-800 bg-slate-900/40 p-4 text-sm text-slate-300">
-                <p class="text-slate-100">OpenAI model</p>
-                <p class="mt-1 text-slate-500">{{ marketStore.settings.openAiModel || 'Chưa cấu hình' }}</p>
-              </div>
-            </div>
-
-            <div class="mt-6 rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
-              <p class="mb-3 text-sm font-semibold text-slate-100">Price alerts cho {{ marketStore.currentSymbolId }}</p>
-              <div class="grid gap-2 sm:grid-cols-[1fr,130px]">
-                <input
-                  v-model="alertTarget"
-                  class="rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-emerald-400"
-                  placeholder="Mức giá mục tiêu"
-                  type="number"
-                />
-                <select
-                  v-model="alertDirection"
-                  class="rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-emerald-400"
-                >
-                  <option value="above">Above</option>
-                  <option value="below">Below</option>
-                </select>
-              </div>
-              <button class="mt-3 rounded-full border border-emerald-400/50 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-200" @click="addAlertFromForm">
-                Thêm alert
-              </button>
-
-              <div class="mt-4 grid gap-2">
-                <div
-                  v-for="alert in marketStore.alerts.filter((item) => item.symbol === marketStore.currentSymbolId)"
-                  :key="alert.id"
-                  class="flex items-center justify-between rounded-2xl border border-slate-800 px-3 py-2 text-sm"
-                >
-                  <span class="text-slate-300">
-                    {{ alert.direction }} {{ alert.target }} <span v-if="alert.triggeredAt" class="text-emerald-300">triggered</span>
-                  </span>
-                  <button class="text-xs text-rose-300" @click="marketStore.removeAlert(alert.id)">Xóa</button>
-                </div>
-              </div>
-            </div>
-          </section>
         </div>
 
         <main class="min-w-0 space-y-6">
           <section class="rounded-[2rem] border border-slate-800 bg-slate-950/60 p-4 shadow-2xl shadow-slate-950/30">
             <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Timeframe</p>
-                <h2 class="font-display text-lg text-slate-100">Khung thời gian</h2>
+                <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Khung thời gian</p>
+                <h2 class="font-display text-lg text-slate-100">Chọn khung giao dịch</h2>
               </div>
               <button class="rounded-full border border-slate-700 px-3 py-1.5 text-xs text-slate-200" @click="syncVisibleCharts(true)">
-                Reload history
+                Tải lại dữ liệu lịch sử
               </button>
             </div>
             <TimeframeSelector v-model="marketStore.selectedTimeframe" :options="TIMEFRAMES" />
@@ -407,31 +342,6 @@ onBeforeUnmount(() => {
             @toggle-all="indicatorStore.setAllIndicators"
             @preset="indicatorStore.applyPreset"
           />
-
-          <section class="rounded-3xl border border-slate-800 bg-slate-950/70 p-4 shadow-2xl shadow-slate-950/30">
-            <div class="mb-4">
-              <p class="text-xs uppercase tracking-[0.3em] text-slate-500">System Status</p>
-              <h2 class="font-display text-lg text-slate-100">Nguồn dữ liệu</h2>
-            </div>
-
-            <div class="grid gap-3 text-sm">
-              <div class="rounded-2xl border border-slate-800 bg-slate-900/40 p-3">
-                <p class="text-slate-100">Quote polling</p>
-                <p class="mt-1 text-slate-500">{{ marketStore.quotesLoading ? 'Đang refresh' : '5s/polling' }}</p>
-              </div>
-              <div class="rounded-2xl border border-slate-800 bg-slate-900/40 p-3">
-                <p class="text-slate-100">History / indicators</p>
-                <p class="mt-1 text-slate-500">{{ historyLoading ? 'Loading candles...' : 'Ready with worker compute' }}</p>
-              </div>
-              <div class="rounded-2xl border border-slate-800 bg-slate-900/40 p-3">
-                <p class="text-slate-100">Fallback chain</p>
-                <p class="mt-1 text-slate-500">Crypto: Binance → Yahoo → Alpha. Others: Finnhub/Yahoo → Alpha.</p>
-              </div>
-              <div v-if="marketStore.quoteError" class="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-3 text-rose-200">
-                {{ marketStore.quoteError }}
-              </div>
-            </div>
-          </section>
         </div>
       </div>
     </div>

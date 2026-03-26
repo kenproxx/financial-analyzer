@@ -19,29 +19,48 @@ const groups = computed(() => ['trend', 'momentum', 'volatility', 'volume', 'pat
 const allSelected = computed(
   () => groups.value.every((group) => props.enabledGroups[group]) && INDICATORS.every((item) => props.enabledIndicators.includes(item.key)),
 )
+
+function groupLabel(group: IndicatorGroup) {
+  switch (group) {
+    case 'trend':
+      return 'Xu hướng'
+    case 'momentum':
+      return 'Động lượng'
+    case 'volatility':
+      return 'Biến động'
+    case 'volume':
+      return 'Khối lượng'
+    case 'pattern':
+      return 'Mô hình'
+    case 'support':
+      return 'Hỗ trợ/kháng cự'
+    case 'advanced':
+      return 'Nâng cao'
+  }
+}
 </script>
 
 <template>
   <section class="rounded-3xl border border-slate-800 bg-slate-950/70 p-4 shadow-2xl shadow-slate-950/30">
     <div class="mb-4">
-      <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Indicator Filter</p>
-      <h2 class="font-display text-lg text-slate-100">Bộ lọc chỉ báo</h2>
+      <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Bộ lọc chỉ báo</p>
+      <h2 class="font-display text-lg text-slate-100">Tùy chọn chỉ báo kỹ thuật</h2>
     </div>
 
     <div class="mb-4 flex flex-wrap gap-2">
       <button class="rounded-full border border-slate-700 px-3 py-1.5 text-xs text-slate-200 hover:border-emerald-400" @click="emit('preset', 'scalping')">
-        Scalping
+        Lướt sóng
       </button>
       <button class="rounded-full border border-slate-700 px-3 py-1.5 text-xs text-slate-200 hover:border-emerald-400" @click="emit('preset', 'swing')">
         Swing
       </button>
       <button class="rounded-full border border-slate-700 px-3 py-1.5 text-xs text-slate-200 hover:border-emerald-400" @click="emit('preset', 'longTerm')">
-        Long-term
+        Dài hạn
       </button>
     </div>
 
     <label class="mb-4 flex items-center justify-between rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-100">
-      <span>Select all indicators</span>
+      <span>Chọn toàn bộ chỉ báo</span>
       <input
         :checked="allSelected"
         class="accent-emerald-400"
@@ -62,7 +81,7 @@ const allSelected = computed(
           type="checkbox"
           @change="emit('toggleGroup', group)"
         />
-        <span class="capitalize">{{ group }}</span>
+        <span>{{ groupLabel(group) }}</span>
       </label>
     </div>
 
@@ -74,7 +93,7 @@ const allSelected = computed(
       >
         <div class="min-w-0">
           <p class="truncate text-slate-100">{{ indicator.label }}</p>
-          <p class="text-xs capitalize text-slate-500">{{ indicator.group }}</p>
+          <p class="text-xs text-slate-500">{{ groupLabel(indicator.group) }}</p>
         </div>
         <input
           :checked="props.enabledGroups[indicator.group] && props.enabledIndicators.includes(indicator.key)"

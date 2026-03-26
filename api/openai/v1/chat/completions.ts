@@ -24,14 +24,14 @@ async function readRawBody(req: any) {
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST')
-    return sendJson(res, 405, { error: { message: 'Method not allowed' } })
+    return sendJson(res, 405, { error: { message: 'Phương thức không được hỗ trợ' } })
   }
 
   const apiKey = process.env.OPENAI_API_KEY?.trim()
   if (!apiKey) {
     return sendJson(res, 503, {
       error: {
-        message: 'Missing OPENAI_API_KEY on server.',
+        message: 'Thiếu OPENAI_API_KEY trên máy chủ.',
         type: 'configuration_error',
       },
     })
@@ -44,7 +44,7 @@ export default async function handler(req: any, res: any) {
   } catch {
     return sendJson(res, 400, {
       error: {
-        message: 'Invalid JSON body.',
+        message: 'Nội dung JSON không hợp lệ.',
         type: 'invalid_request_error',
       },
     })
@@ -101,7 +101,7 @@ export default async function handler(req: any, res: any) {
   } catch (error) {
     return sendJson(res, 502, {
       error: {
-        message: error instanceof Error ? error.message : 'OpenAI upstream request failed',
+        message: error instanceof Error ? error.message : 'Yêu cầu tới OpenAI upstream thất bại',
         type: 'upstream_error',
       },
     })

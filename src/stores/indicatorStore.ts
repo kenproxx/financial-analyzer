@@ -118,7 +118,7 @@ export const useIndicatorStore = defineStore('indicator', () => {
       analysisByKey.value[key] = result
       return result
     } catch (error) {
-      errorByKey.value[key] = error instanceof Error ? error.message : 'Indicator calculation failed'
+      errorByKey.value[key] = error instanceof Error ? error.message : 'Tính toán chỉ báo thất bại'
       return null
     } finally {
       loadingByKey.value[key] = false
@@ -206,7 +206,7 @@ export const useIndicatorStore = defineStore('indicator', () => {
             hasData: false,
             strength: 'neutral',
             updatedAt: Date.now(),
-            error: error instanceof Error ? error.message : 'Matrix refresh failed',
+            error: error instanceof Error ? error.message : 'Làm mới ma trận tín hiệu thất bại',
           }
         }
 

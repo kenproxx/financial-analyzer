@@ -22,15 +22,15 @@ function isAuthorized(req: any) {
 export default async function handler(req: any, res: any) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET')
-    return sendJson(res, 405, { ok: false, error: 'Method not allowed' })
+    return sendJson(res, 405, { ok: false, error: 'Phương thức không được hỗ trợ' })
   }
 
   if (!isAuthorized(req)) {
-    return sendJson(res, 401, { ok: false, error: 'Unauthorized' })
+    return sendJson(res, 401, { ok: false, error: 'Không được phép truy cập' })
   }
 
   if (!isHistoryCacheConfigured()) {
-    return sendJson(res, 500, { ok: false, error: 'Missing TURSO_DATABASE_URL or TURSO_AUTH_TOKEN' })
+    return sendJson(res, 500, { ok: false, error: 'Thiếu TURSO_DATABASE_URL hoặc TURSO_AUTH_TOKEN' })
   }
 
   const symbols = parseSyncSymbols(process.env.SYNC_SYMBOLS || req.query.symbols)
@@ -56,7 +56,7 @@ export default async function handler(req: any, res: any) {
           symbol: symbol.id,
           timeframe,
           ok: false,
-          error: error instanceof Error ? error.message : 'Sync failed',
+          error: error instanceof Error ? error.message : 'Đồng bộ thất bại',
         })
       }
     }

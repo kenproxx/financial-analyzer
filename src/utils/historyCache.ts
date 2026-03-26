@@ -29,17 +29,17 @@ async function readJsonResponse<T>(response: Response, operation: 'read' | 'writ
   const contentType = response.headers.get('content-type') || ''
 
   if (response.status === 404 || response.status === 503) {
-    disableHistoryCache('History cache disabled: Turso cache API is unavailable or not configured.')
-    throw new Error(`History cache ${operation} unavailable (${response.status})`)
+    disableHistoryCache('Đã tắt bộ nhớ đệm lịch sử: API cache Turso không khả dụng hoặc chưa được cấu hình.')
+    throw new Error(`Bộ nhớ đệm lịch sử (${operation}) không khả dụng (${response.status})`)
   }
 
   if (!response.ok) {
-    throw new Error(`History cache ${operation} failed (${response.status})`)
+    throw new Error(`Bộ nhớ đệm lịch sử (${operation}) thất bại (${response.status})`)
   }
 
   if (!contentType.includes('application/json')) {
-    disableHistoryCache('History cache disabled: API returned non-JSON content.')
-    throw new Error(`History cache ${operation} returned invalid content`)
+    disableHistoryCache('Đã tắt bộ nhớ đệm lịch sử: API trả về nội dung không phải JSON.')
+    throw new Error(`Bộ nhớ đệm lịch sử (${operation}) trả về nội dung không hợp lệ`)
   }
 
   return (await response.json()) as T
@@ -90,7 +90,7 @@ export async function readHistoryCache(symbol: MarketSymbol, timeframe: Supporte
 
   const payload = await readJsonResponse<HistoryResponse>(response, 'read')
   if (payload.ok === false) {
-    throw new Error(payload.error || 'History cache read failed')
+    throw new Error(payload.error || 'Đọc bộ nhớ đệm lịch sử thất bại')
   }
 
   return normalizeCandles(payload.candles).slice(-limit)
@@ -131,6 +131,6 @@ export async function writeHistoryCache(
 
   const payload = await readJsonResponse<{ ok?: boolean; error?: string }>(response, 'write')
   if (payload.ok === false) {
-    throw new Error(payload.error || 'History cache write failed')
+    throw new Error(payload.error || 'Ghi bộ nhớ đệm lịch sử thất bại')
   }
 }

@@ -8,7 +8,7 @@ function sendJson(res: any, status: number, payload: unknown) {
 
 export default async function handler(req: any, res: any) {
   if (!isHistoryCacheConfigured()) {
-    return sendJson(res, 503, { ok: false, error: 'History cache is not configured. Missing Turso env.' })
+    return sendJson(res, 503, { ok: false, error: 'Chưa cấu hình bộ nhớ đệm lịch sử. Thiếu biến môi trường Turso.' })
   }
 
   if (req.method === 'GET') {
@@ -17,14 +17,14 @@ export default async function handler(req: any, res: any) {
     const limit = Number(req.query.limit || 500)
 
     if (!symbol || !timeframe) {
-      return sendJson(res, 400, { ok: false, error: 'Missing symbol or timeframe' })
+      return sendJson(res, 400, { ok: false, error: 'Thiếu symbol hoặc timeframe' })
     }
 
     try {
       const candles = await readHistoryCache(symbol, timeframe, limit)
       return sendJson(res, 200, { ok: true, candles })
     } catch (error) {
-      return sendJson(res, 502, { ok: false, error: error instanceof Error ? error.message : 'History cache read failed' })
+      return sendJson(res, 502, { ok: false, error: error instanceof Error ? error.message : 'Đọc bộ nhớ đệm lịch sử thất bại' })
     }
   }
 
@@ -37,17 +37,17 @@ export default async function handler(req: any, res: any) {
     const source = payload.source ? String(payload.source) : undefined
 
     if (!symbol || !timeframe) {
-      return sendJson(res, 400, { ok: false, error: 'Missing symbol or timeframe' })
+      return sendJson(res, 400, { ok: false, error: 'Thiếu symbol hoặc timeframe' })
     }
 
     try {
       const result = await writeHistoryCache(symbol, timeframe, candles, { assetCategory, source })
       return sendJson(res, 200, result)
     } catch (error) {
-      return sendJson(res, 502, { ok: false, error: error instanceof Error ? error.message : 'History cache write failed' })
+      return sendJson(res, 502, { ok: false, error: error instanceof Error ? error.message : 'Ghi bộ nhớ đệm lịch sử thất bại' })
     }
   }
 
   res.setHeader('Allow', 'GET, POST')
-  return sendJson(res, 405, { ok: false, error: 'Method not allowed' })
+  return sendJson(res, 405, { ok: false, error: 'Phương thức không được hỗ trợ' })
 }

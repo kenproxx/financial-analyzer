@@ -17,12 +17,12 @@ function readEnv(name: 'TURSO_DATABASE_URL' | 'TURSO_AUTH_TOKEN') {
 function getTursoConfig(): TursoConfig {
   const url = readEnv('TURSO_DATABASE_URL')
   if (!url) {
-    throw new Error('Missing server env TURSO_DATABASE_URL')
+    throw new Error('Thiếu biến môi trường máy chủ TURSO_DATABASE_URL')
   }
 
   const authToken = readEnv('TURSO_AUTH_TOKEN')
   if (!authToken && !url.startsWith('file:')) {
-    throw new Error('Missing server env TURSO_AUTH_TOKEN')
+    throw new Error('Thiếu biến môi trường máy chủ TURSO_AUTH_TOKEN')
   }
 
   return { url, authToken }

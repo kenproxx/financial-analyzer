@@ -48,7 +48,7 @@ async function fetchYahooHistory(symbol: MarketSymbol, timeframe: SupportedTimef
   })
 
   if (!response.ok) {
-    throw new Error(`Yahoo history failed (${response.status})`)
+    throw new Error(`Tải lịch sử Yahoo thất bại (${response.status})`)
   }
 
   const payload = await response.json() as Record<string, any>
@@ -71,7 +71,7 @@ async function fetchYahooHistory(symbol: MarketSymbol, timeframe: SupportedTimef
 
 async function fetchBinanceHistory(symbol: MarketSymbol, timeframe: SupportedTimeframe): Promise<ServerOHLCV[]> {
   if (!symbol.binanceSymbol) {
-    throw new Error('Missing Binance symbol mapping')
+    throw new Error('Thiếu mã ánh xạ Binance')
   }
 
   const config = TIMEFRAME_CONFIG[timeframe]
@@ -86,7 +86,7 @@ async function fetchBinanceHistory(symbol: MarketSymbol, timeframe: SupportedTim
   })
 
   if (!response.ok) {
-    throw new Error(`Binance history failed (${response.status})`)
+    throw new Error(`Tải lịch sử Binance thất bại (${response.status})`)
   }
 
   const rows = (await response.json()) as Array<[number, string, string, string, string, string]>
@@ -105,7 +105,7 @@ async function fetchBinanceHistory(symbol: MarketSymbol, timeframe: SupportedTim
 async function fetchAlphaVantageHistory(symbol: MarketSymbol, timeframe: SupportedTimeframe): Promise<ServerOHLCV[]> {
   const key = alphaKey()
   if (!key) {
-    throw new Error('Missing Alpha Vantage key')
+    throw new Error('Thiếu khóa Alpha Vantage')
   }
 
   const config = TIMEFRAME_CONFIG[timeframe]
@@ -129,7 +129,7 @@ async function fetchAlphaVantageHistory(symbol: MarketSymbol, timeframe: Support
   })
 
   if (!response.ok) {
-    throw new Error(`Alpha Vantage history failed (${response.status})`)
+    throw new Error(`Tải lịch sử Alpha Vantage thất bại (${response.status})`)
   }
 
   const payload = await response.json() as Record<string, Record<string, Record<string, string>>>
@@ -167,7 +167,7 @@ export async function fetchHistoricalCandles(symbol: MarketSymbol, timeframe: Su
     }
   }
 
-  throw lastError instanceof Error ? lastError : new Error('Unable to fetch historical candles')
+  throw lastError instanceof Error ? lastError : new Error('Không thể tải dữ liệu nến lịch sử')
 }
 
 export function parseSupportedTimeframes(value?: string | null) {

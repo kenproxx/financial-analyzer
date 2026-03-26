@@ -43,10 +43,10 @@ onBeforeUnmount(() => {
   <section class="rounded-3xl border border-slate-800 bg-slate-950/70 p-4 shadow-2xl shadow-slate-950/30">
     <div class="mb-4 flex items-start justify-between gap-3">
       <div>
-        <p class="text-xs uppercase tracking-[0.3em] text-slate-500">AI Insight</p>
-        <h2 class="font-display text-lg text-slate-100">Phan tich thi truong bang AI</h2>
+        <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Nhận định AI</p>
+        <h2 class="font-display text-lg text-slate-100">Phân tích thị trường bằng AI</h2>
         <p class="mt-1 text-sm text-slate-500">{{ symbol.id }} · {{ timeframe }}</p>
-        <p v-if="isCoolingDown" class="mt-1 text-xs text-amber-300">AI tam khoa den {{ retryLabel }}</p>
+        <p v-if="isCoolingDown" class="mt-1 text-xs text-amber-300">AI tạm khóa đến {{ retryLabel }}</p>
       </div>
       <div class="flex gap-2">
         <button
@@ -54,14 +54,14 @@ onBeforeUnmount(() => {
           :disabled="!canAnalyze"
           @click="emit('analyze', false)"
         >
-          Phan tich AI
+          Phân tích AI
         </button>
         <button
           class="rounded-full border border-slate-700 px-3 py-1.5 text-xs text-slate-200 disabled:cursor-not-allowed disabled:border-slate-800 disabled:text-slate-500"
           :disabled="!canAnalyze"
           @click="emit('analyze', true)"
         >
-          Refresh
+          Làm mới
         </button>
       </div>
     </div>
@@ -72,7 +72,7 @@ onBeforeUnmount(() => {
           {{ insight.error }}
         </p>
         <p v-if="insight.errorCode === 'insufficient_quota'" class="text-xs text-slate-500">
-          Can nap them quota hoac doi sang API key khac tren Vercel.
+          Có thể nạp thêm quota hoặc đổi sang API key khác trên Vercel.
         </p>
       </div>
       <div v-else-if="insight?.content" class="space-y-3 whitespace-pre-wrap text-sm leading-7 text-slate-200">
@@ -80,7 +80,7 @@ onBeforeUnmount(() => {
         <span v-if="insight.loading" class="animate-pulse text-emerald-300">|</span>
       </div>
       <p v-else class="text-sm text-slate-500">
-        Nhan "Phan tich AI" de stream nhan dinh technical + macro va khuyen nghi entry / stop loss / take profit.
+        Nhấn "Phân tích AI" để stream nhận định kỹ thuật, bối cảnh thị trường và gợi ý điểm vào lệnh, cắt lỗ, chốt lời.
       </p>
     </div>
   </section>
