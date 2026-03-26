@@ -145,6 +145,9 @@ export interface InsightResult {
   createdAt: number
   loading: boolean
   error?: string
+  errorCode?: string
+  statusCode?: number
+  retryAt?: number
 }
 
 export interface HistoryRequest {

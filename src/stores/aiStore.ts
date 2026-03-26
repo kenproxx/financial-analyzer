@@ -6,20 +6,60 @@ import { useIndicatorStore } from './indicatorStore'
 import { useMarketStore } from './marketStore'
 
 const CACHE_TTL = 15 * 60 * 1000
+const RATE_LIMIT_COOLDOWN_MS = 60 * 1000
+const QUOTA_COOLDOWN_MS = 30 * 60 * 1000
 
 function insightKey(symbol: string, timeframe: SupportedTimeframe) {
   return `${symbol}:${timeframe}`
 }
 
+function parseRetryAfter(value: string | null) {
+  if (!value) {
+    return null
+  }
+
+  const seconds = Number(value)
+  if (Number.isFinite(seconds) && seconds > 0) {
+    return Date.now() + seconds * 1000
+  }
+
+  const asDate = new Date(value).getTime()
+  return Number.isFinite(asDate) ? asDate : null
+}
+
+function formatRetryTime(timestamp: number) {
+  return new Date(timestamp).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 export const useAiStore = defineStore('ai', () => {
   const insights = ref<Record<string, InsightResult>>({})
   const pending = new Map<string, Promise<InsightResult>>()
+  const blockedUntil = ref(0)
+  const blockedMessage = ref('')
 
   async function analyze(symbolId: string, timeframe: SupportedTimeframe, force = false) {
     const marketStore = useMarketStore()
     const indicatorStore = useIndicatorStore()
     const key = insightKey(symbolId, timeframe)
     const cached = insights.value[key]
+
+    if (Date.now() < blockedUntil.value) {
+      insights.value[key] = {
+        symbol: symbolId,
+        timeframe,
+        content: '',
+        createdAt: Date.now(),
+        loading: false,
+        error: blockedMessage.value,
+        errorCode: 'cooldown_active',
+        statusCode: 429,
+        retryAt: blockedUntil.value,
+      }
+      return insights.value[key]
+    }
 
     if (!force && cached && Date.now() - cached.createdAt < CACHE_TTL) {
       return cached
@@ -92,14 +132,33 @@ Tra loi dung 3 phan:
       if (!response.ok || !response.body) {
         const errorText = await response.text()
         let errorMessage = `OpenAI request failed (${response.status})`
+        let errorCode = ''
 
         try {
           const parsed = JSON.parse(errorText)
           errorMessage = parsed.error?.message ?? parsed.message ?? errorMessage
+          errorCode = parsed.error?.code ?? parsed.code ?? ''
         } catch {
           if (errorText.trim()) {
             errorMessage = errorText.trim()
           }
+        }
+
+        let retryAt: number | undefined
+        if (response.status === 429) {
+          if (errorCode === 'insufficient_quota') {
+            retryAt = Date.now() + QUOTA_COOLDOWN_MS
+            errorMessage = `OpenAI API key da het quota. Tam khoa AI den ${formatRetryTime(retryAt)} de tranh goi lap.`
+          } else {
+            retryAt = parseRetryAfter(response.headers.get('retry-after')) ?? Date.now() + RATE_LIMIT_COOLDOWN_MS
+            errorMessage = `OpenAI dang rate limit. Thu lai sau ${formatRetryTime(retryAt)}.`
+          }
+
+          blockedUntil.value = retryAt
+          blockedMessage.value = errorMessage
+        } else if (response.status < 429) {
+          blockedUntil.value = 0
+          blockedMessage.value = ''
         }
 
         insights.value[key] = {
@@ -109,6 +168,9 @@ Tra loi dung 3 phan:
           createdAt: Date.now(),
           loading: false,
           error: errorMessage,
+          errorCode,
+          statusCode: response.status,
+          retryAt,
         }
         return insights.value[key]
       }
@@ -159,6 +221,8 @@ Tra loi dung 3 phan:
         loading: false,
         createdAt: Date.now(),
       }
+      blockedUntil.value = 0
+      blockedMessage.value = ''
 
       return insights.value[key]
     })()
@@ -173,6 +237,7 @@ Tra loi dung 3 phan:
 
   return {
     insights,
+    blockedUntil,
     analyze,
   }
 })

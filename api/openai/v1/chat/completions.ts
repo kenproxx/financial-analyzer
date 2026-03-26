@@ -73,6 +73,16 @@ export default async function handler(req: any, res: any) {
       res.setHeader('Cache-Control', cacheControl)
     }
 
+    const retryAfter = upstream.headers.get('retry-after')
+    if (retryAfter) {
+      res.setHeader('Retry-After', retryAfter)
+    }
+
+    const requestId = upstream.headers.get('x-request-id')
+    if (requestId) {
+      res.setHeader('X-Request-Id', requestId)
+    }
+
     if (!upstream.body) {
       return res.end()
     }

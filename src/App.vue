@@ -33,17 +33,8 @@ const historyLoading = computed(
 )
 
 function maybeAnalyzeCurrentView() {
-  const symbolId = marketStore.currentSymbolId
-  const timeframe = marketStore.selectedTimeframe
-  const insight = aiStore.insights[`${symbolId}:${timeframe}`]
-  const quote = marketStore.quotes[symbolId]
-  const analysis = indicatorStore.analysisFor(symbolId, timeframe)
-
-  if (insight?.loading || insight?.content || insight?.error || !quote || !analysis) {
-    return
-  }
-
-  void aiStore.analyze(symbolId, timeframe, false)
+  // Keep AI analysis user-triggered to avoid burning quota from background refreshes.
+  return
 }
 
 const binanceSocket = useWebSocket({
