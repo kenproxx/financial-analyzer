@@ -26,11 +26,20 @@ const bearishTrendCandles: OHLCV[] = Array.from({ length: 40 }, (_, index) => {
   }
 })
 
-const manualPatternLimitationWindow: OHLCV[] = [
-  { time: 1, open: 110, high: 111, low: 106, close: 107, volume: 1000 },
-  { time: 2, open: 108, high: 109, low: 103, close: 104, volume: 1000 },
-  { time: 3, open: 105, high: 106, low: 100, close: 101, volume: 1000 },
-  { time: 4, open: 101, high: 101.2, low: 94, close: 100.95, volume: 1000 },
+const manualHammerWindow: OHLCV[] = [
+  { time: 1, open: 110, high: 111, low: 107, close: 108, volume: 1000 },
+  { time: 2, open: 108, high: 109, low: 104, close: 105, volume: 1000 },
+  { time: 3, open: 105, high: 106, low: 101, close: 102, volume: 1000 },
+  { time: 4, open: 102, high: 103, low: 98, close: 99, volume: 1000 },
+  { time: 5, open: 99, high: 99.4, low: 92.5, close: 99.25, volume: 1000 },
+]
+
+const manualShootingStarWindow: OHLCV[] = [
+  { time: 1, open: 100, high: 103, low: 99, close: 102, volume: 1000 },
+  { time: 2, open: 102, high: 106, low: 101, close: 105, volume: 1000 },
+  { time: 3, open: 105, high: 109, low: 104, close: 108, volume: 1000 },
+  { time: 4, open: 108, high: 112, low: 107, close: 111, volume: 1000 },
+  { time: 5, open: 111.2, high: 118, low: 110.9, close: 111.0, volume: 1000 },
 ]
 
 describe('wave 4 correctness coverage', () => {
@@ -74,9 +83,13 @@ describe('wave 4 correctness coverage', () => {
     expect(shortTail[0]).toBeGreaterThan(longTail[0])
   })
 
-  it('documents current manual pattern fallback limitation for near-doji reversal candles', () => {
-    const patterns = detectPatterns(manualPatternLimitationWindow)
-    expect(patterns.doji).toBe(true)
-    expect(patterns.hammer).toBe('none')
+  it('detects manual hammer fallback with bearish context and clear lower wick', () => {
+    const patterns = detectPatterns(manualHammerWindow)
+    expect(patterns.hammer).toBe('hammer')
+  })
+
+  it('detects manual shooting star fallback with bullish context and clear upper wick', () => {
+    const patterns = detectPatterns(manualShootingStarWindow)
+    expect(patterns.hammer).toBe('shootingStar')
   })
 })

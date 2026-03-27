@@ -408,6 +408,7 @@ export function detectPatterns(candles: OHLCV[]) {
   const dojiWindow = candles.slice(-1)
   const engulfingWindow = candles.slice(-2)
   const reversalWindow = candles.slice(-5)
+  const contextWindow = candles.slice(-6, -1)
 
   const dojiPattern =
     dojiWindow.length >= 1
@@ -442,10 +443,29 @@ export function detectPatterns(candles: OHLCV[]) {
   const range = Math.max(latestCandle.high - latestCandle.low, Number.EPSILON)
   const upperShadow = latestCandle.high - Math.max(latestCandle.open, latestCandle.close)
   const lowerShadow = Math.min(latestCandle.open, latestCandle.close) - latestCandle.low
+  const bodyRatio = body / range
+  const lowerRatio = lowerShadow / range
+  const upperRatio = upperShadow / range
+  const priorCloses = contextWindow.map((item) => item.close)
+  const priorSlope = priorCloses.length >= 2 ? priorCloses.at(-1)! - priorCloses[0] : 0
+  const bullishBody = latestCandle.close >= latestCandle.open
+  const bearishBody = latestCandle.close <= latestCandle.open
+
   const manualHammer =
-    lowerShadow >= body * 2 && upperShadow <= body * 0.5 && (body / range < 0.4 || lowerShadow / range > 0.5)
+    priorSlope < 0 &&
+    bullishBody &&
+    lowerShadow >= Math.max(body * 2.5, range * 0.45) &&
+    upperShadow <= Math.max(body * 0.75, range * 0.12) &&
+    bodyRatio <= 0.35 &&
+    lowerRatio > upperRatio
+
   const manualShootingStar =
-    upperShadow >= body * 2 && lowerShadow <= body * 0.5 && (body / range < 0.4 || upperShadow / range > 0.5)
+    priorSlope > 0 &&
+    bearishBody &&
+    upperShadow >= Math.max(body * 2.5, range * 0.45) &&
+    lowerShadow <= Math.max(body * 0.75, range * 0.12) &&
+    bodyRatio <= 0.35 &&
+    upperRatio > lowerRatio
 
   const hammerPattern =
     reversalWindow.length >= 5
