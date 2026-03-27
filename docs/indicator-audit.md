@@ -184,9 +184,7 @@ Mỗi indicator nên có:
 - Supertrend hiện mới có **invariant verification**, chưa có canonical external reference được khóa chính thức
 
 ### Chưa đủ verification depth
-- Supertrend (cần chốt canonical reference implementation)
-- Guppy summary logic
-- Pattern heuristics / manual fallback logic
+- Supertrend (cần chốt canonical reference implementation bên ngoài, hiện mới có deterministic trend behavior + invariant coverage)
 - Signal aggregation layer ở mức toàn diện cho tất cả rule
 
 ### Đã audit thêm ở wave hiện tại
@@ -194,6 +192,9 @@ Mỗi indicator nên có:
 - CMO
 - Historical Volatility
 - Ultimate Oscillator
+- Guppy summary logic (ordering / trend-spread behavior)
+- Pattern heuristics / manual fallback logic cho hammer & shooting star
+  - phát hiện thêm một limitation: các near-doji reversal candles vẫn có thể rơi vào `doji=true` nhưng `hammer='none'`, nghĩa là fallback hiện tại chưa đủ mạnh để gọi là production-grade pattern detection
 - một phần signal aggregation rules (trend, RSI, MACD, CMF)
 
 ## Kết luận audit ban đầu

@@ -227,7 +227,7 @@ Vì đây là ứng dụng liên quan tới tài chính, repo hiện đã bắt 
 - verification bổ sung cho một số công thức custom/high-risk trong `src/utils/indicators.advanced.test.ts`
 - wave verification tiếp theo cho Aroon / CMO / Historical Volatility / Ultimate Oscillator và một phần signal rules trong `src/utils/indicators.audit-wave3.test.ts`
 
-Lưu ý quan trọng: để tuyên bố “100% chính xác” theo chuẩn nghiêm ngặt, vẫn cần tiếp tục mở rộng verification coverage cho các phần còn lại như Supertrend canonical reference, Guppy và pattern heuristics.
+Lưu ý quan trọng: để tuyên bố “100% chính xác” theo chuẩn nghiêm ngặt, vẫn cần tiếp tục mở rộng verification coverage cho các phần còn lại như Supertrend canonical reference bên ngoài và signal aggregation coverage đầy đủ hơn trên toàn bộ ruleset.
 
 ## License / mục đích sử dụng
 
