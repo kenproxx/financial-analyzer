@@ -35,6 +35,14 @@ export default async function handler(req: any, res: any) {
 
   const symbols = parseSyncSymbols(process.env.SYNC_SYMBOLS || req.query.symbols)
   const timeframes = parseSupportedTimeframes(process.env.SYNC_TIMEFRAMES || req.query.timeframes)
+
+  if (!symbols.length || !timeframes.length) {
+    return sendJson(res, 400, {
+      ok: false,
+      error: 'Thiếu symbol hoặc timeframe hợp lệ để đồng bộ',
+    })
+  }
+
   const results: Array<Record<string, unknown>> = []
 
   for (const symbol of symbols) {
