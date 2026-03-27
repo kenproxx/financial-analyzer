@@ -9,11 +9,11 @@ const CACHE_TTL = 15 * 60 * 1000
 const RATE_LIMIT_COOLDOWN_MS = 60 * 1000
 const QUOTA_COOLDOWN_MS = 30 * 60 * 1000
 
-function insightKey(symbol: string, timeframe: SupportedTimeframe) {
+export function insightKey(symbol: string, timeframe: SupportedTimeframe) {
   return `${symbol}:${timeframe}`
 }
 
-function parseRetryAfter(value: string | null) {
+export function parseRetryAfter(value: string | null) {
   if (!value) {
     return null
   }
@@ -238,6 +238,7 @@ Trả lời đúng 3 phần:
   return {
     insights,
     blockedUntil,
+    blockedMessage,
     analyze,
   }
 })

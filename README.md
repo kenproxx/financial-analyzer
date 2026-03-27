@@ -202,6 +202,22 @@ Nếu bạn muốn repo này nhìn mạnh hơn trên GitHub, nên thêm:
 - 1 ảnh multi-chart mode
 - 1 GIF ngắn cho realtime flow
 
+### Placeholder đề xuất cho README
+
+```md
+![Dashboard overview](./docs/screenshots/dashboard-overview.png)
+![AI insight panel](./docs/screenshots/ai-insight.png)
+![Multi-chart mode](./docs/screenshots/multi-chart.png)
+```
+
+## Các cải tiến gần đây
+
+- thêm nền tảng test với Vitest
+- thêm test cho signal engine và market data helpers
+- tách logic realtime/sync orchestration khỏi `App.vue` sang composable riêng
+- tăng validation cho các API route quan trọng
+- chuẩn hóa README để repo portfolio-friendly hơn
+
 ## License / mục đích sử dụng
 
 Hiện README chưa chốt license cụ thể. Nếu định public nghiêm túc, nên thêm license rõ ràng.
