@@ -185,13 +185,16 @@ Mỗi indicator nên có:
 
 ### Chưa đủ verification depth
 - Supertrend (cần chốt canonical reference implementation)
+- Guppy summary logic
+- Pattern heuristics / manual fallback logic
+- Signal aggregation layer ở mức toàn diện cho tất cả rule
+
+### Đã audit thêm ở wave hiện tại
 - Aroon oscillator
 - CMO
 - Historical Volatility
 - Ultimate Oscillator
-- Guppy summary logic
-- Pattern heuristics / manual fallback logic
-- Signal aggregation layer
+- một phần signal aggregation rules (trend, RSI, MACD, CMF)
 
 ## Kết luận audit ban đầu
 
