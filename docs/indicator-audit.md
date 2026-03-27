@@ -196,6 +196,7 @@ Mỗi indicator nên có:
 - Pattern heuristics / manual fallback logic cho hammer & shooting star
   - phát hiện thêm một limitation: các near-doji reversal candles vẫn có thể rơi vào `doji=true` nhưng `hammer='none'`, nghĩa là fallback hiện tại chưa đủ mạnh để gọi là production-grade pattern detection
 - một phần signal aggregation rules (trend, RSI, MACD, CMF)
+- thêm rule coverage cho Bollinger, Donchian, Ichimoku, ADX, Stochastic, Williams %R, OBV, pattern summaries, Guppy và aggregate thresholds
 
 ## Kết luận audit ban đầu
 
