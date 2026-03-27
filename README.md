@@ -213,10 +213,20 @@ Nếu bạn muốn repo này nhìn mạnh hơn trên GitHub, nên thêm:
 ## Các cải tiến gần đây
 
 - thêm nền tảng test với Vitest
-- thêm test cho signal engine và market data helpers
+- thêm test cho signal engine, market data helpers và baseline verification cho nhóm indicator cốt lõi
 - tách logic realtime/sync orchestration khỏi `App.vue` sang composable riêng
 - tăng validation cho các API route quan trọng
+- bổ sung tài liệu audit cho technical indicator correctness
 - chuẩn hóa README để repo portfolio-friendly hơn
+
+## Technical analysis correctness
+
+Vì đây là ứng dụng liên quan tới tài chính, repo hiện đã bắt đầu có hướng kiểm định rõ hơn cho phần indicator:
+- audit nguồn công thức trong `docs/indicator-audit.md`
+- baseline verification test cho các indicator cốt lõi trong `src/utils/indicators.core.test.ts`
+- verification bổ sung cho một số công thức custom/high-risk trong `src/utils/indicators.advanced.test.ts`
+
+Lưu ý quan trọng: để tuyên bố “100% chính xác” theo chuẩn nghiêm ngặt, vẫn cần tiếp tục mở rộng verification coverage cho các phần còn lại như Supertrend canonical reference, Aroon/CMO/HV/Ultimate, Guppy và pattern heuristics.
 
 ## License / mục đích sử dụng
 
