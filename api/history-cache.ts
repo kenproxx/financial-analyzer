@@ -6,15 +6,24 @@ function sendJson(res: any, status: number, payload: unknown) {
   res.end(JSON.stringify(payload))
 }
 
+function parsePositiveLimit(value: unknown, fallback = 500) {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) {
+    return fallback
+  }
+
+  return Math.max(1, Math.min(Math.trunc(parsed), 5000))
+}
+
 export default async function handler(req: any, res: any) {
   if (!isHistoryCacheConfigured()) {
     return sendJson(res, 503, { ok: false, error: 'Chưa cấu hình bộ nhớ đệm lịch sử. Thiếu biến môi trường Turso.' })
   }
 
   if (req.method === 'GET') {
-    const symbol = String(req.query.symbol || '')
-    const timeframe = String(req.query.timeframe || '')
-    const limit = Number(req.query.limit || 500)
+    const symbol = String(req.query.symbol || '').trim()
+    const timeframe = String(req.query.timeframe || '').trim()
+    const limit = parsePositiveLimit(req.query.limit, 500)
 
     if (!symbol || !timeframe) {
       return sendJson(res, 400, { ok: false, error: 'Thiếu symbol hoặc timeframe' })
@@ -29,12 +38,18 @@ export default async function handler(req: any, res: any) {
   }
 
   if (req.method === 'POST') {
-    const payload = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {}
-    const symbol = String(payload.symbol || '')
-    const timeframe = String(payload.timeframe || '')
+    let payload: Record<string, unknown>
+    try {
+      payload = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {}
+    } catch {
+      return sendJson(res, 400, { ok: false, error: 'Nội dung JSON không hợp lệ' })
+    }
+
+    const symbol = String(payload.symbol || '').trim()
+    const timeframe = String(payload.timeframe || '').trim()
     const candles = Array.isArray(payload.candles) ? payload.candles : []
-    const assetCategory = payload.assetCategory ? String(payload.assetCategory) : undefined
-    const source = payload.source ? String(payload.source) : undefined
+    const assetCategory = payload.assetCategory ? String(payload.assetCategory).trim() : undefined
+    const source = payload.source ? String(payload.source).trim() : undefined
 
     if (!symbol || !timeframe) {
       return sendJson(res, 400, { ok: false, error: 'Thiếu symbol hoặc timeframe' })
